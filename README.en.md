@@ -5,19 +5,19 @@
 </p>
 
 <p align="center">
-  A switchable, creatable, importable, and restorable theme system for Codex Desktop.<br>
-  The native sidebar, conversations, project picker, and composer remain interactive.
+  A cross-platform theme manager for Codex Desktop.<br>
+  Switch, create, import, restore, and generate themes through a bundled Codex Skill.
 </p>
 
 <p align="center">
-  <a href="https://github.com/houyuhang915-sudo/Codex-Dream-Skin/releases">Releases</a>
+  <a href="https://github.com/houyuhang915-sudo/Codex-Skin-Manager/releases">Downloads</a>
   ·
   <a href="./docs/theme-format.md">Theme format</a>
   ·
   <a href="./docs/platforms.md">Platforms</a>
 </p>
 
-> Unofficial and not affiliated with OpenAI. Themes are injected through loopback-only CDP. The project does not modify the official `.app`, `app.asar`, WindowsApps files, or code signatures.
+> Current version: `1.5.0`. This is a community project and is not affiliated with OpenAI.
 
 ## Showcase
 
@@ -34,11 +34,11 @@
     <td colspan="2" align="center"><strong>Cartethyia · Sea Breeze</strong></td>
   </tr>
   <tr>
-    <td><img src="docs/images/showcase/miku-home.png" alt="Hatsune Miku theme home page"></td>
-    <td><img src="docs/images/showcase/miku-chat.png" alt="Hatsune Miku theme chat page"></td>
+    <td><img src="docs/images/showcase/miku-home.png" alt="Hatsune Miku light theme home page"></td>
+    <td><img src="docs/images/showcase/miku-chat.png" alt="Hatsune Miku light theme chat page"></td>
   </tr>
   <tr>
-    <td colspan="2" align="center"><strong>Hatsune Miku</strong></td>
+    <td colspan="2" align="center"><strong>Hatsune Miku · Light</strong></td>
   </tr>
   <tr>
     <td><img src="docs/images/showcase/cyrene-home.png" alt="Cyrene theme home page"></td>
@@ -49,32 +49,29 @@
   </tr>
 </table>
 
-These images were captured from real Codex pages. Conversation content, task names, projects, and other sidebar details were hidden during capture while preserving the theme and native interface structure.
+The screenshots come from real Codex pages. The capture utility hides conversation content, task names, project names, and private sidebar information.
 
 ## Features
 
-- 14 built-in appearances with the stock Codex theme pinned first
 - Native macOS and Windows theme managers
-- One-click switching and restoration
-- In-app theme creation with adjustable horizontal crop focus
-- Bundled Codex theme-creator Skill that generates and installs themes from chat
-- Automatic `2400x800` background and `1200x400` preview generation
-- Light/dark appearance, author, category, and palette controls
-- Strict schema 2 folder import with field, PNG, aspect-ratio, size, and path validation
-- Shared styling for home, chat, plugin, skill, sidebar, composer, menu, and notification surfaces
-- Pet overlay remains visible across every theme switch
+- 14 bundled appearances with the stock Codex theme pinned first
+- One-click theme switching with synchronized manager state
+- In-app theme creation from local images
+- Horizontal crop focus, light/dark appearance, and palette controls
+- Strict schema 2 theme-folder import
+- Theme creation through the bundled `codex-skin-theme-creator` Skill
+- Automatic library refresh when a theme is created
+- Shared styling for home, chat, settings, plugins, skills, notifications, and composer
+- Pet overlay preserved across all theme switches
+- One-click restoration of the stock Codex appearance
 
-## Install
+## Download And Install
 
-Download the platform package from [Releases](https://github.com/houyuhang915-sudo/Codex-Dream-Skin/releases).
+Download `v1.5.0` from [Releases](https://github.com/houyuhang915-sudo/Codex-Skin-Manager/releases).
 
 ### macOS
 
-1. Open `Codex 皮肤管理器 1.5.0.dmg`.
-2. Launch `安装 Codex 皮肤管理器.app`.
-3. Click the install button. The manager opens after installation.
-
-Requirements: macOS 14+, official Codex Desktop.
+Download `Codex-Skin-Manager-1.5.0.dmg`, open it, then launch `安装 Codex 皮肤管理器.app` and click the install button.
 
 Installed locations:
 
@@ -84,116 +81,168 @@ Engine: ~/.codex/codex-dream-skin-studio
 Themes: ~/Library/Application Support/CodexDreamSkinStudio/themes
 ```
 
+Requirements: macOS 14 or later and the official Codex desktop app.
+
 ### Windows
 
-1. Codex may remain open.
-2. Run `Codex-Skin-Manager-Setup-1.5.0.exe`.
-3. Open `Codex 皮肤管理器` from the Start menu.
-
-Starting with `1.4.1`, setup works while Codex is running. The current window remains open, and the theme takes effect when it is first applied.
-
-Requirements: Windows 10/11, Microsoft Store Codex.
+Run `Codex-Skin-Manager-Setup-1.5.0.exe`. Codex may remain open during setup. Launch `Codex 皮肤管理器` from the Start menu and use **One-click switch**.
 
 Installed locations:
 
 ```text
 Engine: %LOCALAPPDATA%\CodexDreamSkin\engine-1.5.0
 Themes: %LOCALAPPDATA%\CodexDreamSkin\themes
-State and logs: %LOCALAPPDATA%\CodexDreamSkin
+State: %LOCALAPPDATA%\CodexDreamSkin
 ```
 
-## Create And Import
+Requirements: Windows 10/11 and the Microsoft Store Codex app.
 
-Use **Create Theme** in the manager to select an image, adjust crop focus, enter metadata, choose light/dark mode, and set three palette colors.
+## Use A Theme
+
+1. Open Codex Skin Manager.
+2. Select a theme preview.
+3. Click the one-click switch action.
+4. Check the current theme, connection status, and result in the manager.
+5. Select the pinned stock Codex theme to restore the official appearance.
+
+Themes change the visual layer only. Conversations, settings, projects, and composer controls remain native Codex UI.
+
+## Create A Theme
+
+Open **Create Theme** in the manager:
+
+1. Select a PNG, JPEG, WebP, or HEIC image.
+2. Adjust horizontal focus.
+3. Enter the name, ID, author, description, and category.
+4. Choose light or dark appearance.
+5. Set the accent, secondary, and highlight colors.
+6. Create the theme.
 
 The manager produces:
 
 ```text
 my-theme/
 ├── theme.json
-├── background.png
-└── preview.png
+├── background.png   # 2400x800
+└── preview.png      # 1200x400
 ```
 
-Use **Import Theme** to install a folder with the same structure. The importer enforces schema 2, safe lowercase IDs, required `style` and `appearance` fields, real 3:1 PNG files, required colors, `avatarOverlay: "show"`, and protected built-in IDs. See [docs/theme-format.md](./docs/theme-format.md) for the complete schema, dimensions, color fields, and import contract.
+The new theme appears in the library immediately.
 
-### Create With The Codex Skill
+## Codex Skill
 
-The installer deploys [`codex-skin-theme-creator`](./skill/codex-skin-theme-creator) into the Codex Skill directory:
+The installers deploy `codex-skin-theme-creator` automatically. A standalone `codex-skin-theme-creator-1.5.0.zip` is also available in the Release.
+
+Default locations:
 
 ```text
 macOS: ${CODEX_HOME:-~/.codex}/skills/codex-skin-theme-creator
 Windows: %CODEX_HOME%\skills\codex-skin-theme-creator
 ```
 
-The **Integration** page shows its status and can reinstall it. Example prompt:
+Example:
 
 ```text
-Create a dark star-sea Codex theme. Keep the character on the right
-and the environment clear on the left. Name it "Star Sea Workspace".
+Create a light Codex theme from this image and name it "Aqua Workspace".
 ```
 
-The Skill can generate a new image or process a supplied image. It creates a `2400x800` background, `1200x400` preview, and schema 2 manifest, then atomically installs them into the user library. An open manager detects the new theme automatically. See the [Skill workflow](./skill/codex-skin-theme-creator/SKILL.md) for its complete behavior.
+The Skill can generate or process artwork, produce the schema 2 manifest, and atomically install the finished theme into the user library. See the [Skill workflow](./skill/codex-skin-theme-creator/SKILL.md).
+
+## Import Contract
+
+A theme folder contains exactly:
+
+```text
+theme-id/
+├── theme.json
+├── background.png
+└── preview.png
+```
+
+Core requirements:
+
+- `schemaVersion` is `2`
+- IDs use lowercase letters, numbers, and hyphens
+- Both images are real PNG files with an exact 3:1 ratio
+- Recommended sizes are `2400x800` and `1200x400`
+- `avatarOverlay` is `show`
+- `appearance` is `auto`, `light`, or `dark`
+- Symbolic links, escaping paths, and legacy `taskImage` fields are rejected
+
+See [docs/theme-format.md](./docs/theme-format.md) for all fields and a complete manifest example.
+
+## Bundled Themes
+
+The library includes the stock Codex appearance, Salary Cat, Hatsune Miku, Nailong, Cyrene, Blue Archive Ensemble, Cartethyia, Furina, Firefly, Saber, Asuka, Rem, People's AI, and KUN Black Gold Stage.
+
+## Runtime Model
+
+```text
+Codex Skin Manager
+  ├─ manages bundled and user themes
+  ├─ starts or connects to local Codex
+  ├─ injects the selected theme through 127.0.0.1 CDP
+  └─ verifies the applied state
+                |
+                v
+Native Codex sidebar, chat, settings, and composer remain active
+```
+
+The project does not modify the official `.app`, `app.asar`, WindowsApps files, or official code signatures. CDP is restricted to the local loopback interface.
 
 ## Build From Source
 
 ```bash
-git clone https://github.com/houyuhang915-sudo/Codex-Dream-Skin.git
-cd Codex-Dream-Skin
+git clone https://github.com/houyuhang915-sudo/Codex-Skin-Manager.git
+cd Codex-Skin-Manager
 ```
 
 macOS:
 
 ```bash
-cd macos
-npm test
-./scripts/build-studio-app-macos.sh "$HOME/Desktop/Codex 皮肤管理器.app"
-./scripts/build-installer-dmg-macos.sh "$HOME/Desktop/Codex 皮肤管理器 1.5.0.dmg"
+macos/tests/run-tests.sh
+macos/scripts/build-studio-app-macos.sh \
+  "$HOME/Desktop/Codex 皮肤管理器.app"
+macos/scripts/build-installer-dmg-macos.sh \
+  "$HOME/Desktop/Codex-Skin-Manager-1.5.0.dmg"
 ```
 
-Windows tests and manager:
+Windows:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File windows\tests\run-tests.ps1
 powershell -ExecutionPolicy Bypass -STA -File windows\scripts\theme-manager.ps1
 ```
 
-Windows installer:
+Installer:
 
 ```bash
 brew install nsis
 windows/scripts/build-installer-windows.sh
 ```
 
-Run the PowerShell, install, switch, restore, and uninstall checks on a real Windows machine before publishing a Windows release.
-
-## Architecture
-
-The manager starts the official Codex app with CDP bound to `127.0.0.1`, validates the Codex process and renderer target, then injects CSS, theme variables, and small decorative DOM elements. Native Codex controls remain in place.
-
 ## Repository Layout
 
 ```text
-macos/                         macOS app, installer, runtime, and themes
-windows/                       Windows manager, NSIS installer, runtime, and themes
+macos/                         macOS manager, installer, runtime, and themes
+windows/                       Windows manager, installer, runtime, and themes
 skill/codex-skin-theme-creator Codex theme creator Skill
 docs/images/showcase/          Sanitized README screenshots
-docs/theme-format.md           Schema 2 theme contract
+docs/theme-format.md           Schema 2 theme format
 docs/platforms.md              Platform paths and capability matrix
-script/                        Maintainer utilities
+script/                        Build and documentation utilities
 ```
 
-## Contributing
+## Verification
 
-Read [AGENTS.md](./AGENTS.md) and the [theme format](./docs/theme-format.md). Run `cd macos && npm test` for macOS changes and `powershell -File windows/tests/run-tests.ps1` for Windows changes. Include home and chat screenshots for visual changes. Do not commit API keys, `auth.json`, private chats, customer data, or screenshots containing personal information.
+The release passes macOS build and regression checks, Windows PowerShell 5.1 and PowerShell 7 tests, cross-platform Node.js renderer tests, GitHub Actions static checks, DMG verification, NSIS format inspection, and Skill validation.
 
-## Sponsor
-
-Thanks to [passion8.cc](https://passion8.cc/register?aff=TuPe) for sponsoring the project. Theme management and API provider configuration remain separate; this project does not rewrite API keys, base URLs, or provider settings.
+Use `Codex-Skin-Manager-1.5.0-SHA256.txt` from the Release to verify downloaded files.
 
 ## License
 
-- Code: [MIT](./LICENSE)
-- Asset records: [asset-provenance.md](./macos/references/asset-provenance.md)
-- Codex and related marks belong to their respective owners
-- Character themes are personal-use examples; verify the relevant content, character, and trademark rights before public or commercial redistribution
+Code is released under the [MIT License](./LICENSE). Character themes demonstrate the theme system; confirm the applicable image, character-name, and trademark conditions before redistribution or commercial use.
+
+## Attribution
+
+This project references the theme-injection approach from [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin) and independently develops the cross-platform manager, theme library, installers, creation tools, and Codex Skill.
