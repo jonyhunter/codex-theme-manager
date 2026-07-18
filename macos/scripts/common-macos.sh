@@ -410,6 +410,7 @@ launch_injector_daemon() {
 
 # Resolve Node quickly: prefer known Codex path, else full runtime check.
 ensure_node_runtime() {
+  local saved=""
   if [ -n "${NODE:-}" ] && [ -x "${NODE:-}" ]; then
     if [ -z "${NODE_VERSION:-}" ]; then
       NODE_VERSION="$("$NODE" --version 2>/dev/null || echo unknown)"
@@ -436,15 +437,16 @@ ensure_node_runtime() {
       : "${CODEX_EXE:=/Applications/Codex.app/Contents/MacOS/ChatGPT}"
       : "${CODEX_VERSION:=}"
       : "${CODEX_TEAM_ID:=}"
-      # Soft-fill from state if present
       if [ -f "$STATE_PATH" ]; then
-        eval "$(/usr/bin/python3 -c 'import json,sys
-try:
-  s=json.load(open(sys.argv[1]))
-  for k,env in [("codexBundle","CODEX_BUNDLE"),("codexExe","CODEX_EXE"),("codexVersion","CODEX_VERSION"),("codexTeamId","CODEX_TEAM_ID")]:
-    v=s.get(k) or ""
-    if v: print(f"export {env}={json.dumps(v)}")
-except Exception: pass' "$STATE_PATH" 2>/dev/null || true)"
+        saved="$(state_field codexBundle 2>/dev/null || true)"
+        [ -z "$saved" ] || CODEX_BUNDLE="$saved"
+        saved="$(state_field codexExe 2>/dev/null || true)"
+        [ -z "$saved" ] || CODEX_EXE="$saved"
+        saved="$(state_field codexVersion 2>/dev/null || true)"
+        [ -z "$saved" ] || CODEX_VERSION="$saved"
+        saved="$(state_field codexTeamId 2>/dev/null || true)"
+        [ -z "$saved" ] || CODEX_TEAM_ID="$saved"
+        export CODEX_BUNDLE CODEX_EXE CODEX_VERSION CODEX_TEAM_ID
       fi
       return 0
     fi
