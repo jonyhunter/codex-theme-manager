@@ -1,8 +1,8 @@
+# Codex Skin Manager
+
 <p align="center">
   <img src="macos/assets/DreamSkinAppIcon.png" width="128" height="128" alt="Codex Skin Manager icon">
 </p>
-
-# Codex Skin Manager
 
 <p align="center">
   <a href="./README.md">中文</a> · <strong>English</strong>
