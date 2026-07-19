@@ -19,7 +19,20 @@
 
 > Current version: `1.5.0`. This is a community project and is not affiliated with OpenAI.
 
-## Showcase
+## Manager UI
+
+<table>
+  <tr>
+    <th width="60%">Theme library and one-click switching</th>
+    <th width="40%">Built-in theme creator</th>
+  </tr>
+  <tr>
+    <td><img src="docs/images/showcase/manager-library.png" alt="Codex Skin Manager theme library and one-click switching"></td>
+    <td><img src="docs/images/showcase/manager-create-theme.png" alt="Codex Skin Manager theme creation dialog"></td>
+  </tr>
+</table>
+
+## Theme Showcase
 
 <table>
   <tr>

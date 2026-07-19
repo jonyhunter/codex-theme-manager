@@ -19,7 +19,20 @@
 
 > 当前版本：`1.5.0`。本项目为社区工具，与 OpenAI 无隶属关系。
 
-## 界面展示
+## 软件界面
+
+<table>
+  <tr>
+    <th width="60%">主题库与一键切换</th>
+    <th width="40%">内置主题创建器</th>
+  </tr>
+  <tr>
+    <td><img src="docs/images/showcase/manager-library.png" alt="Codex 皮肤管理器主题库与一键切换界面"></td>
+    <td><img src="docs/images/showcase/manager-create-theme.png" alt="Codex 皮肤管理器创建主题界面"></td>
+  </tr>
+</table>
+
+## 主题展示
 
 <table>
   <tr>
