@@ -1,0 +1,148 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate tag and signed bootstrap feed
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          test "$version" = "$(tr -d '\r\n' < macos/VERSION)"
+          node script/update-feed.mjs validate
+          node --test macos/tests/*.test.mjs windows/tests/*.test.mjs
+
+  macos:
+    needs: validate
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build macOS DMG
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p release
+          macos/scripts/build-installer-dmg-macos.sh \
+            "$PWD/release/Codex-Skin-Manager-$version.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          path: release/*.dmg
+          if-no-files-found: error
+
+  windows:
+    needs: validate
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          $makensis = Join-Path ${env:ProgramFiles(x86)} 'NSIS\makensis.exe'
+          if (-not (Test-Path -LiteralPath $makensis)) {
+            choco install nsis --no-progress -y
+          }
+          & $makensis windows\installer\CodexDreamSkin.nsi
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: windows/release/*.exe
+          if-no-files-found: error
+
+  publish:
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      UPDATE_PRIVATE_KEY: ${{ secrets.CODEX_UPDATE_PRIVATE_KEY_JWK }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "*-release"
+          path: release
+          merge-multiple: true
+      - name: Build Skill package and signed feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          test -n "$UPDATE_PRIVATE_KEY"
+          printf '%s\n' "$UPDATE_PRIVATE_KEY" > .update-private-key.jwk
+          chmod 600 .update-private-key.jwk
+          (
+            cd skill
+            zip -r -X "../release/codex-skin-theme-creator-$version.zip" \
+              codex-skin-theme-creator
+          )
+          node script/update-feed.mjs generate \
+            --version "$version" \
+            --mac-asset "release/Codex-Skin-Manager-$version.dmg" \
+            --windows-asset "release/Codex-Skin-Manager-Setup-$version.exe" \
+            --private-key .update-private-key.jwk
+          node script/update-feed.mjs validate
+          sha256sum \
+            "release/Codex-Skin-Manager-$version.dmg" \
+            "release/Codex-Skin-Manager-Setup-$version.exe" \
+            "release/codex-skin-theme-creator-$version.zip" \
+            > "release/Codex-Skin-Manager-$version-SHA256.txt"
+      - name: Publish GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          assets=(
+            "release/Codex-Skin-Manager-$version.dmg"
+            "release/Codex-Skin-Manager-Setup-$version.exe"
+            "release/codex-skin-theme-creator-$version.zip"
+            "release/Codex-Skin-Manager-$version-SHA256.txt"
+            "updates/stable.json"
+            "updates/stable.json.sig"
+            "updates/themes.json"
+            "updates/themes.json.sig"
+          )
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+              --title "Codex 皮肤管理器 $GITHUB_REF_NAME" \
+              --generate-notes
+          fi
+      - name: Publish the verified update feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp updates/stable.json /tmp/stable.json
+          cp updates/stable.json.sig /tmp/stable.json.sig
+          cp updates/themes.json /tmp/themes.json
+          cp updates/themes.json.sig /tmp/themes.json.sig
+          git checkout main
+          git pull --ff-only origin main
+          cp /tmp/stable.json updates/stable.json
+          cp /tmp/stable.json.sig updates/stable.json.sig
+          cp /tmp/themes.json updates/themes.json
+          cp /tmp/themes.json.sig updates/themes.json.sig
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add updates
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore: publish ${GITHUB_REF_NAME} update feed"
+          git push origin main

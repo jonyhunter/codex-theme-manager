@@ -15,6 +15,8 @@ while IFS= read -r file; do "$NODE" --check "$file" >/dev/null; done < <(
 )
 "$NODE" --check \
   "$REPOSITORY_ROOT/skill/codex-skin-theme-creator/scripts/create-theme.mjs" >/dev/null
+"$NODE" --check "$REPOSITORY_ROOT/script/update-feed.mjs" >/dev/null
+"$NODE" "$REPOSITORY_ROOT/script/update-feed.mjs" validate >/dev/null
 [ -f "$REPOSITORY_ROOT/skill/codex-skin-theme-creator/SKILL.md" ]
 [ -f "$REPOSITORY_ROOT/skill/codex-skin-theme-creator/agents/openai.yaml" ]
 
@@ -164,6 +166,11 @@ fi
 /usr/bin/grep -q 'process.exit(process.exitCode' "$ROOT/scripts/injector.mjs"
 /usr/bin/grep -q 'MenuBarExtra' "$ROOT/studio/DreamSkinStudio.swift"
 /usr/bin/grep -q 'Text("皮肤")' "$ROOT/studio/DreamSkinStudio.swift"
+/usr/bin/grep -q 'UpdateToolbarButton' "$ROOT/studio/DreamSkinStudio.swift"
+/usr/bin/grep -q 'fetchSignedJSON' "$ROOT/studio/UpdateService.swift"
+/usr/bin/grep -q 'Curve25519.Signing.PublicKey' "$ROOT/studio/UpdateService.swift"
+/usr/bin/grep -q -- '--automatic-update' "$ROOT/installer/DreamSkinInstaller.swift"
+/usr/bin/grep -q 'CODEX_WAS_RUNNING' "$ROOT/scripts/install-dream-skin-macos.sh"
 /usr/bin/grep -q 'Window("Codex 皮肤管理器", id: "manager")' "$ROOT/studio/DreamSkinStudio.swift"
 /usr/bin/grep -q 'refreshMonitoredStateIfNeeded' "$ROOT/studio/DreamSkinStudio.swift"
 /usr/bin/grep -q 'openWindow(id: "manager")' "$ROOT/studio/DreamSkinStudio.swift"
@@ -180,6 +187,10 @@ if /usr/bin/xcrun --find swiftc >/dev/null 2>&1; then
     "$TMP/theme-package-service"
   /usr/bin/xcrun swiftc -parse-as-library -typecheck \
     -framework SwiftUI -framework AppKit "$ROOT/installer/DreamSkinInstaller.swift"
+  /usr/bin/xcrun swiftc -parse-as-library -framework CryptoKit \
+    "$ROOT/tests/UpdateSignatureTests.swift" \
+    -o "$TMP/update-signature-tests"
+  "$TMP/update-signature-tests" "$REPOSITORY_ROOT/updates"
   "$ROOT/scripts/build-studio-app-macos.sh" "$TMP/Codex 皮肤管理器.app" >/dev/null
   [ -s "$TMP/Codex 皮肤管理器.app/Contents/Resources/DreamSkinAppIcon.icns" ]
   [ -x "$TMP/Codex 皮肤管理器.app/Contents/MacOS/CodexSkinManager" ]
@@ -202,7 +213,7 @@ if /usr/bin/xcrun --find swiftc >/dev/null 2>&1; then
   ' "$TMP/skill-result.json" "$TMP/skill-themes/skill-created-test/theme.json"
   [ "$(/usr/bin/plutil -extract CFBundleIconFile raw "$TMP/Codex 皮肤管理器.app/Contents/Info.plist")" = "DreamSkinAppIcon.icns" ]
   [ "$(/usr/bin/plutil -extract CFBundleName raw "$TMP/Codex 皮肤管理器.app/Contents/Info.plist")" = "Codex 皮肤管理器" ]
-  [ "$(/usr/bin/plutil -extract CFBundleShortVersionString raw "$TMP/Codex 皮肤管理器.app/Contents/Info.plist")" = "1.6.1" ]
+  [ "$(/usr/bin/plutil -extract CFBundleShortVersionString raw "$TMP/Codex 皮肤管理器.app/Contents/Info.plist")" = "1.7.0" ]
 fi
 
 CONFIG="$TMP/config.toml"
@@ -220,7 +231,7 @@ BACKUP="$TMP/theme-backup.json"
 "$NODE" "$ROOT/scripts/theme-config.mjs" restore "$CONFIG" "$BACKUP" >/dev/null
 /usr/bin/cmp -s "$CONFIG" "$TMP/original.toml"
 
-/usr/bin/env -u HOME /bin/bash -c '. "$1/scripts/common-macos.sh"; [ -n "$HOME" ] && [ "$SKIN_VERSION" = "1.6.1" ]' _ "$ROOT"
+/usr/bin/env -u HOME /bin/bash -c '. "$1/scripts/common-macos.sh"; [ -n "$HOME" ] && [ "$SKIN_VERSION" = "1.7.0" ]' _ "$ROOT"
 "$ROOT/scripts/doctor-macos.sh" >/dev/null
 
 printf 'PASS: syntax, payload, theme library, Studio build, config round-trip, HOME recovery, signature, and doctor checks.\n'

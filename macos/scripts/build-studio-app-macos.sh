@@ -30,6 +30,7 @@ TEMPORARY="${OUTPUT}.building.$$"
   -framework SwiftUI \
   -framework AppKit \
   -framework ImageIO \
+  -framework CryptoKit \
   "$SOURCE_ROOT"/*.swift \
   -o "$TEMPORARY/Contents/MacOS/CodexSkinManager"
 /usr/bin/xcrun swiftc \

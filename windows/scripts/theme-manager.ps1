@@ -337,6 +337,16 @@ $themeOrder = $DreamSkinBuiltInThemeIds
 $ActiveThemePath = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin\theme\theme.json'
 $StatePath = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin\state.json'
 $SelectionPath = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin\selection.json'
+$ManagerVersion = '1.7.0'
+$UpdateFeedURL = if ($env:CODEX_SKIN_UPDATE_FEED_URL) {
+  $env:CODEX_SKIN_UPDATE_FEED_URL
+} else {
+  'https://raw.githubusercontent.com/houyuhang915-sudo/Codex-Skin-Manager/main/updates/stable.json'
+}
+$UpdateRoot = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin\updates'
+$UpdateClient = Join-Path $PSScriptRoot 'update-client.mjs'
+$UpdateCheckResultPath = Join-Path $UpdateRoot 'check-result.json'
+$UpdateCheckStatePath = Join-Path $UpdateRoot 'check-state.json'
 $script:themes = @()
 $script:themeImages = @()
 $script:applyButtons = @()
@@ -353,9 +363,14 @@ $script:trayStatusItem = $null
 $script:trayCurrentThemeItem = $null
 $script:trayThemesMenu = $null
 $script:trayRestoreItem = $null
+$script:trayUpdateItem = $null
 $script:trayMenuFingerprint = ''
 $script:explicitExit = $false
 $script:hasShownTrayHint = $false
+$script:updateProcess = $null
+$script:updateOperation = $null
+$script:updateInfo = $null
+$script:updateManualCheck = $false
 
 function New-ManagerButton {
   param(
@@ -515,6 +530,274 @@ function Show-ManagerWindow {
   $form.BringToFront()
 }
 
+function ConvertTo-ManagerProcessArgument {
+  param([Parameter(Mandatory = $true)][string]$Value)
+  if ($Value.Contains([char]34) -or $Value.Contains([char]13) -or
+      $Value.Contains([char]10) -or $Value.EndsWith('\')) {
+    throw '更新进程参数包含不受支持的字符。'
+  }
+  if ($Value -notmatch '\s') { return $Value }
+  return [char]34 + $Value + [char]34
+}
+
+function Start-HiddenManagerProcess {
+  param(
+    [Parameter(Mandatory = $true)][string]$FileName,
+    [Parameter(Mandatory = $true)][string[]]$Arguments
+  )
+
+  $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+  $startInfo.FileName = $FileName
+  $startInfo.Arguments = @($Arguments | ForEach-Object {
+    ConvertTo-ManagerProcessArgument -Value ([string]$_)
+  }) -join ' '
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $startInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+  $startInfo.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+  $startInfo.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+  $process = New-Object System.Diagnostics.Process
+  $process.StartInfo = $startInfo
+  if (-not $process.Start()) { throw '更新后台进程未能启动。' }
+  return $process
+}
+
+function Update-ManagerUpdateControls {
+  $busy = $null -ne $script:updateProcess
+  $available = $null -ne $script:updateInfo -and [bool]$script:updateInfo.updateAvailable
+  $themeCount = if ($null -eq $script:updateInfo) { 0 } else { @($script:updateInfo.themes).Count }
+  $label = if ($busy) {
+    if ($script:updateOperation -ceq 'check') { '检查中...' } else { '更新中...' }
+  } elseif ($available) {
+    '更新 {0}' -f $script:updateInfo.version
+  } elseif ($themeCount -gt 0) {
+    '新主题 {0}' -f $themeCount
+  } else {
+    '检查更新'
+  }
+
+  if ($null -ne $checkUpdateHeaderButton) {
+    $checkUpdateHeaderButton.Text = $label
+    $checkUpdateHeaderButton.Enabled = -not $busy
+    $checkUpdateHeaderButton.BackColor = if ($available -or $themeCount -gt 0) {
+      $AccentColor
+    } else {
+      $SurfaceColor
+    }
+    $checkUpdateHeaderButton.ForeColor = if ($available -or $themeCount -gt 0) {
+      [System.Drawing.Color]::White
+    } else {
+      $InkColor
+    }
+  }
+  if ($null -ne $runtimeUpdateButton) {
+    $runtimeUpdateButton.Text = $label
+    $runtimeUpdateButton.Enabled = -not $busy
+  }
+  if ($null -ne $script:trayUpdateItem) {
+    $script:trayUpdateItem.Text = $label
+    $script:trayUpdateItem.Enabled = -not $busy
+  }
+}
+
+function Start-ManagerUpdateCheck {
+  param([bool]$Manual)
+  if ($null -ne $script:updateProcess) { return }
+  try {
+    $node = (Get-DreamSkinNodeRuntime).Path
+    if (-not (Test-Path -LiteralPath $UpdateClient)) {
+      throw "更新客户端不存在：$UpdateClient"
+    }
+    $script:updateManualCheck = $Manual
+    $script:updateOperation = 'check'
+    $script:updateProcess = Start-HiddenManagerProcess -FileName $node -Arguments @(
+      $UpdateClient,
+      'check',
+      '--feed',
+      $UpdateFeedURL,
+      '--current',
+      $ManagerVersion
+    )
+    $statusLabel.Text = '正在验证软件和在线主题更新…'
+    Update-ManagerUpdateControls
+    $updateTimer.Start()
+  } catch {
+    $script:updateProcess = $null
+    $script:updateOperation = $null
+    $statusLabel.Text = '检查更新失败'
+    if ($Manual) {
+      [System.Windows.Forms.MessageBox]::Show(
+        $_.Exception.Message,
+        '检查更新失败',
+        'OK',
+        'Error'
+      ) | Out-Null
+    }
+    Update-ManagerUpdateControls
+  }
+}
+
+function Test-ManagerAutomaticUpdateCheckDue {
+  if (-not (Test-Path -LiteralPath $UpdateCheckStatePath)) { return $true }
+  try {
+    $state = Get-Content -LiteralPath $UpdateCheckStatePath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $lastCheck = [DateTime]::Parse(
+      [string]$state.checkedAt,
+      [Globalization.CultureInfo]::InvariantCulture,
+      [Globalization.DateTimeStyles]::RoundtripKind
+    )
+    return (Get-Date).ToUniversalTime().Subtract($lastCheck.ToUniversalTime()).TotalHours -ge 24
+  } catch {
+    return $true
+  }
+}
+
+function Start-ManagerUpdateDownload {
+  if ($null -eq $script:updateInfo -or -not [bool]$script:updateInfo.updateAvailable -or
+      $null -ne $script:updateProcess) {
+    return
+  }
+  try {
+    [IO.Directory]::CreateDirectory($UpdateRoot) | Out-Null
+    $version = [string]$script:updateInfo.version
+    if ($version -cnotmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
+      throw '更新版本号格式无效。'
+    }
+    $installerPath = Join-Path $UpdateRoot "Codex-Skin-Manager-Setup-$version.exe"
+    $node = (Get-DreamSkinNodeRuntime).Path
+    $script:updateOperation = 'download'
+    $script:updateProcess = Start-HiddenManagerProcess -FileName $node -Arguments @(
+      $UpdateClient,
+      'download',
+      '--url',
+      [string]$script:updateInfo.platform.url,
+      '--output',
+      $installerPath,
+      '--sha256',
+      [string]$script:updateInfo.platform.sha256,
+      '--size',
+      [string]$script:updateInfo.platform.size
+    )
+    $statusLabel.Text = "正在下载 Codex 皮肤管理器 $version…"
+    Update-ManagerUpdateControls
+    $updateTimer.Start()
+  } catch {
+    $script:updateProcess = $null
+    $script:updateOperation = $null
+    [System.Windows.Forms.MessageBox]::Show(
+      $_.Exception.Message,
+      '更新下载失败',
+      'OK',
+      'Error'
+    ) | Out-Null
+    Update-ManagerUpdateControls
+  }
+}
+
+function Start-OnlineThemeSync {
+  if ($null -eq $script:updateInfo -or @($script:updateInfo.themes).Count -eq 0 -or
+      $null -ne $script:updateProcess) {
+    return
+  }
+  try {
+    $syncScript = Join-Path $PSScriptRoot 'sync-online-themes.ps1'
+    $powershell = (Get-Command powershell.exe -ErrorAction Stop).Source
+    $script:updateOperation = 'themes'
+    $script:updateProcess = Start-HiddenManagerProcess -FileName $powershell -Arguments @(
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      $syncScript,
+      '-CheckResultPath',
+      $UpdateCheckResultPath,
+      '-ThemeRoot',
+      $ThemeRoot
+    )
+    $statusLabel.Text = '正在下载并安装在线主题…'
+    Update-ManagerUpdateControls
+    $updateTimer.Start()
+  } catch {
+    $script:updateProcess = $null
+    $script:updateOperation = $null
+    [System.Windows.Forms.MessageBox]::Show(
+      $_.Exception.Message,
+      '在线主题安装失败',
+      'OK',
+      'Error'
+    ) | Out-Null
+    Update-ManagerUpdateControls
+  }
+}
+
+function Start-VerifiedManagerUpdateInstall {
+  param([Parameter(Mandatory = $true)][string]$InstallerPath)
+  $helper = Join-Path $PSScriptRoot 'install-update-windows.ps1'
+  $version = [string]$script:updateInfo.version
+  $escapedHelper = $helper.Replace("'", "''")
+  $escapedInstaller = $InstallerPath.Replace("'", "''")
+  $escapedVersion = $version.Replace("'", "''")
+  $command = "& '$escapedHelper' -InstallerPath '$escapedInstaller' -Version '$escapedVersion' -ManagerPid $PID"
+  $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+  $powershell = (Get-Command powershell.exe -ErrorAction Stop).Source
+  Start-Process -FilePath $powershell -ArgumentList @(
+    '-NoProfile',
+    '-NonInteractive',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-WindowStyle',
+    'Hidden',
+    '-EncodedCommand',
+    $encoded
+  ) -WindowStyle Hidden | Out-Null
+  $script:explicitExit = $true
+  $form.Close()
+}
+
+function Show-ManagerUpdateAction {
+  if ($null -eq $script:updateInfo) {
+    Start-ManagerUpdateCheck -Manual $true
+    return
+  }
+  if ([bool]$script:updateInfo.updateAvailable) {
+    $message = "发现 Codex 皮肤管理器 $($script:updateInfo.version)。" +
+      [Environment]::NewLine + [Environment]::NewLine +
+      '安装包会先完成签名、大小和 SHA-256 校验；Codex 与用户主题会保持不变。'
+    $choice = [System.Windows.Forms.MessageBox]::Show(
+      $message,
+      '软件更新',
+      'YesNo',
+      'Information'
+    )
+    if ($choice -eq [System.Windows.Forms.DialogResult]::Yes) {
+      Start-ManagerUpdateDownload
+    }
+    return
+  }
+  $themeCount = @($script:updateInfo.themes).Count
+  if ($themeCount -gt 0) {
+    $choice = [System.Windows.Forms.MessageBox]::Show(
+      "发现 $themeCount 套官方在线主题，是否立即安装？",
+      '在线主题更新',
+      'YesNo',
+      'Information'
+    )
+    if ($choice -eq [System.Windows.Forms.DialogResult]::Yes) {
+      Start-OnlineThemeSync
+    }
+    return
+  }
+  [System.Windows.Forms.MessageBox]::Show(
+    "当前版本 $ManagerVersion 已是最新版本。",
+    '检查更新',
+    'OK',
+    'Information'
+  ) | Out-Null
+}
+
 function Update-TrayState {
   if ($null -eq $script:trayIcon) { return }
 
@@ -559,6 +842,7 @@ function Update-TrayState {
   $script:trayThemesMenu.Enabled = $script:themes.Count -gt 0 -and $null -eq $script:switchProcess
   $script:trayRestoreItem.Enabled = $script:activeThemeId -cne 'codex-default' -and
     $null -eq $script:switchProcess
+  Update-ManagerUpdateControls
 }
 
 function Update-NavigationState {
@@ -1243,6 +1527,8 @@ $trayOpenCodexItem = New-Object System.Windows.Forms.ToolStripMenuItem
 $trayOpenCodexItem.Text = '打开 Codex'
 $script:trayRestoreItem = New-Object System.Windows.Forms.ToolStripMenuItem
 $script:trayRestoreItem.Text = '恢复 Codex 原版'
+$script:trayUpdateItem = New-Object System.Windows.Forms.ToolStripMenuItem
+$script:trayUpdateItem.Text = '检查更新'
 $trayExitItem = New-Object System.Windows.Forms.ToolStripMenuItem
 $trayExitItem.Text = '退出皮肤管理器'
 [void]$script:trayMenu.Items.Add($script:trayStatusItem)
@@ -1253,6 +1539,8 @@ $trayExitItem.Text = '退出皮肤管理器'
 [void]$script:trayMenu.Items.Add($trayOpenManagerItem)
 [void]$script:trayMenu.Items.Add($trayOpenCodexItem)
 [void]$script:trayMenu.Items.Add($script:trayRestoreItem)
+[void]$script:trayMenu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
+[void]$script:trayMenu.Items.Add($script:trayUpdateItem)
 [void]$script:trayMenu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
 [void]$script:trayMenu.Items.Add($trayExitItem)
 
@@ -1378,7 +1666,7 @@ $sidebarStatus = New-Object System.Windows.Forms.Label
 $sidebarStatus.Anchor = 'Left,Bottom'
 $sidebarStatus.Location = New-Object System.Drawing.Point(24, 750)
 $sidebarStatus.Size = New-Object System.Drawing.Size(180, 42)
-$sidebarStatus.Text = "安全注入 · 本机回环`r`nWindows v1.6.1"
+$sidebarStatus.Text = "安全注入 · 本机回环`r`nWindows v$ManagerVersion"
 $sidebarStatus.ForeColor = [System.Drawing.Color]::FromArgb(135, 146, 144)
 $sidebarStatus.Font = New-Object System.Drawing.Font($FontName, 8)
 $sidebar.Controls.Add($sidebarStatus)
@@ -1417,6 +1705,11 @@ $pageSubtitle.Size = New-Object System.Drawing.Size(650, 22)
 $pageSubtitle.ForeColor = $MutedColor
 $pageSubtitle.AutoEllipsis = $true
 $pageHeader.Controls.Add($pageSubtitle)
+
+$checkUpdateHeaderButton = New-ManagerButton -Text '检查更新' -Width 104
+$checkUpdateHeaderButton.Anchor = 'Top,Right'
+$checkUpdateHeaderButton.Location = New-Object System.Drawing.Point(680, 38)
+$pageHeader.Controls.Add($checkUpdateHeaderButton)
 
 $refreshHeaderButton = New-ManagerButton -Text '刷新' -Width 88
 $refreshHeaderButton.Anchor = 'Top,Right'
@@ -1792,6 +2085,10 @@ $runtimeRestoreButton = New-ManagerButton -Text '恢复原版' -Width 104
 $runtimeRestoreButton.Location = New-Object System.Drawing.Point(256, 124)
 $runtimeDetail.Controls.Add($runtimeRestoreButton)
 
+$runtimeUpdateButton = New-ManagerButton -Text '检查更新' -Width 116
+$runtimeUpdateButton.Location = New-Object System.Drawing.Point(372, 124)
+$runtimeDetail.Controls.Add($runtimeUpdateButton)
+
 $switchTimer = New-Object System.Windows.Forms.Timer
 $switchTimer.Interval = 250
 $switchTimer.add_Tick({
@@ -1824,6 +2121,109 @@ $switchTimer.add_Tick({
     $themeName = if ($null -ne $theme) { [string]$theme.Manifest.name } else { $appliedThemeId }
     $statusLabel.Text = '已选择：{0}，实时应用未完成' -f $themeName
     [System.Windows.Forms.MessageBox]::Show($message, '主题切换失败', 'OK', 'Error') | Out-Null
+  }
+})
+
+$updateTimer = New-Object System.Windows.Forms.Timer
+$updateTimer.Interval = 250
+$updateTimer.add_Tick({
+  if ($null -eq $script:updateProcess -or -not $script:updateProcess.HasExited) { return }
+  $updateTimer.Stop()
+  $process = $script:updateProcess
+  $operation = $script:updateOperation
+  $manualCheck = $script:updateManualCheck
+  $exitCode = $process.ExitCode
+  $output = $process.StandardOutput.ReadToEnd().Trim()
+  $errorOutput = $process.StandardError.ReadToEnd().Trim()
+  $process.Dispose()
+  $script:updateProcess = $null
+  $script:updateOperation = $null
+  $script:updateManualCheck = $false
+
+  try {
+    if ($exitCode -ne 0) {
+      $detail = if ($errorOutput) { $errorOutput } else { "更新进程退出代码：$exitCode" }
+      throw $detail
+    }
+    switch ($operation) {
+      'check' {
+        $result = $output | ConvertFrom-Json
+        if (-not $result.pass) { throw '更新清单验证未通过。' }
+        [IO.Directory]::CreateDirectory($UpdateRoot) | Out-Null
+        Write-DreamSkinUtf8FileAtomically -Path $UpdateCheckResultPath -Content ($output + [Environment]::NewLine)
+        $checkState = [ordered]@{
+          schemaVersion = 1
+          checkedAt = (Get-Date).ToUniversalTime().ToString('o')
+          managerVersion = $ManagerVersion
+          feedVersion = [string]$result.version
+        }
+        Write-DreamSkinUtf8FileAtomically -Path $UpdateCheckStatePath -Content (
+          ($checkState | ConvertTo-Json -Depth 3) + [Environment]::NewLine
+        )
+        $script:updateInfo = $result
+        $themeCount = @($result.themes).Count
+        if ([bool]$result.updateAvailable) {
+          $statusLabel.Text = "发现新版本：$($result.version)"
+        } elseif ($themeCount -gt 0) {
+          $statusLabel.Text = "发现 $themeCount 套官方在线主题"
+        } else {
+          $statusLabel.Text = "当前版本 $ManagerVersion 已是最新版本"
+        }
+        Update-ManagerUpdateControls
+        if ($manualCheck) {
+          Show-ManagerUpdateAction
+        } elseif ([bool]$result.updateAvailable -or $themeCount -gt 0) {
+          $script:trayIcon.BalloonTipTitle = 'Codex 皮肤管理器有更新'
+          $script:trayIcon.BalloonTipText = $statusLabel.Text
+          $script:trayIcon.ShowBalloonTip(2500)
+        }
+      }
+      'download' {
+        $result = $output | ConvertFrom-Json
+        if (-not $result.pass -or -not (Test-Path -LiteralPath ([string]$result.output))) {
+          throw '下载后的安装包验证未通过。'
+        }
+        $statusLabel.Text = '安装包已验证，正在启动静默更新…'
+        Update-ManagerUpdateControls
+        Start-VerifiedManagerUpdateInstall -InstallerPath ([string]$result.output)
+        return
+      }
+      'themes' {
+        $result = $output | ConvertFrom-Json
+        if (-not $result.pass) { throw '在线主题安装结果无效。' }
+        $count = @($result.installed).Count
+        $script:updateInfo.themes = @()
+        Reload-ThemeLibrary
+        $statusLabel.Text = if ($count -gt 0) {
+          "已安装 $count 套在线主题"
+        } else {
+          '在线主题已经是最新版本'
+        }
+        $script:trayIcon.BalloonTipTitle = '在线主题更新完成'
+        $script:trayIcon.BalloonTipText = $statusLabel.Text
+        $script:trayIcon.ShowBalloonTip(2200)
+      }
+    }
+  } catch {
+    $statusLabel.Text = '更新操作未完成'
+    if ($manualCheck -or $operation -ne 'check') {
+      [System.Windows.Forms.MessageBox]::Show(
+        $_.Exception.Message,
+        '更新失败',
+        'OK',
+        'Error'
+      ) | Out-Null
+    }
+  }
+  Update-ManagerUpdateControls
+})
+
+$automaticUpdateTimer = New-Object System.Windows.Forms.Timer
+$automaticUpdateTimer.Interval = 6000
+$automaticUpdateTimer.add_Tick({
+  $automaticUpdateTimer.Stop()
+  if (Test-ManagerAutomaticUpdateCheckDue) {
+    Start-ManagerUpdateCheck -Manual $false
   }
 })
 
@@ -1943,6 +2343,9 @@ $refreshAction = {
 }
 $refreshHeaderButton.add_Click($refreshAction)
 $runtimeRefreshButton.add_Click($refreshAction)
+$checkUpdateHeaderButton.add_Click({ Show-ManagerUpdateAction })
+$runtimeUpdateButton.add_Click({ Show-ManagerUpdateAction })
+$script:trayUpdateItem.add_Click({ Show-ManagerUpdateAction })
 
 $trayExitItem.add_Click({
   $script:explicitExit = $true
@@ -1965,10 +2368,15 @@ $form.add_FormClosing({
 })
 $form.add_FormClosed({
   $switchTimer.Stop()
+  $updateTimer.Stop()
+  $automaticUpdateTimer.Stop()
   $libraryMonitorTimer.Stop()
   $activationTimer.Stop()
   if ($null -ne $script:switchProcess -and -not $script:switchProcess.HasExited) {
     try { $script:switchProcess.Kill() } catch {}
+  }
+  if ($null -ne $script:updateProcess -and -not $script:updateProcess.HasExited) {
+    try { $script:updateProcess.Kill() } catch {}
   }
   foreach ($image in $script:themeImages) { if ($null -ne $image) { $image.Dispose() } }
   if ($null -ne $script:activeBannerImage) { $script:activeBannerImage.Dispose() }
@@ -1988,6 +2396,7 @@ $form.add_Resize({
 Reload-ThemeLibrary
 $libraryMonitorTimer.Start()
 $activationTimer.Start()
+$automaticUpdateTimer.Start()
 [System.Windows.Forms.Application]::Run($form)
 if ($null -ne $form.Icon) { $form.Icon.Dispose() }
 $form.Dispose()

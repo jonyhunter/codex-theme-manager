@@ -57,7 +57,12 @@ fi
 discover_codex_app
 require_macos_runtime
 ensure_state_root
-codex_is_running && fail "Close Codex before installation so config.toml cannot be rewritten while the app is saving it."
+CODEX_WAS_RUNNING="false"
+if codex_is_running; then
+  CODEX_WAS_RUNNING="true"
+  [ "$LAUNCH_AFTER_INSTALL" = "false" ] \
+    || fail "Close Codex before an interactive installation so config.toml cannot be rewritten while the app is saving it."
+fi
 seed_bundled_presets
 if [ ! -f "$THEME_DIR/theme.json" ]; then
   "$SCRIPT_DIR/switch-theme-macos.sh" --id preset-gothic-void-crusade --no-apply >/dev/null
@@ -69,7 +74,9 @@ if [ ! -f "$THEME_DIR/theme.json" ]; then
   "$SCRIPT_DIR/switch-theme-macos.sh" --id miku-dream-skin --no-apply
 fi
 "$NODE" "$INJECTOR" --check-payload --theme-dir "$THEME_DIR" >/dev/null
-"$NODE" "$SCRIPT_DIR/theme-config.mjs" install "$CONFIG_PATH" "$THEME_BACKUP_PATH"
+if [ "$CODEX_WAS_RUNNING" = "false" ]; then
+  "$NODE" "$SCRIPT_DIR/theme-config.mjs" install "$CONFIG_PATH" "$THEME_BACKUP_PATH"
+fi
 
 # A graphical upgrade intentionally avoids relaunching Codex. If a verified
 # live session already exists, replace the old injector and hot-apply the newly

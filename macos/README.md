@@ -33,7 +33,8 @@ open "$HOME/Applications/Codex 皮肤管理器.app"
 #    Codex Dream Skin - Restore.command
 
 # 5) Close the main window to keep the native manager in the menu bar.
-#    Use the palette icon to inspect status, switch themes, or reopen the window.
+#    Use the “皮肤” menu to inspect status, switch themes, check updates,
+#    or reopen the window.
 ```
 
 Install location after step 2:
@@ -59,10 +60,19 @@ That ZIP contains a visible installer plus a hidden `.codex-dream-skin-studio` e
 Build a macOS disk image containing the graphical one-click installer:
 
 ```bash
-./scripts/build-installer-dmg-macos.sh "$HOME/Desktop/Codex 皮肤管理器 1.6.1.dmg"
+./scripts/build-installer-dmg-macos.sh "$HOME/Desktop/Codex 皮肤管理器 1.7.0.dmg"
 ```
 
 Open the DMG, launch `安装 Codex 皮肤管理器.app`, and click `一键安装`. It deploys the engine under `~/.codex`, installs the prebuilt manager under `~/Applications`, creates a Desktop entry, and opens the manager.
+
+## Signed in-app updates
+
+The manager checks the signed stable feed once per day and also exposes a manual
+check in the toolbar and the `皮肤` menu. It verifies Ed25519 metadata, HTTPS,
+declared size, and SHA-256 before mounting the DMG. The bundled installer then
+runs in automatic-update mode, replaces the engine and manager, preserves user
+themes and state, and reopens the new version. The separately signed theme
+catalog can install compatible schema 2 themes without a full app release.
 
 ## How it works (security boundary)
 

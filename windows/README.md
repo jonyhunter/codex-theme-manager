@@ -7,16 +7,19 @@ Windows 版与 macOS 版使用相同的 14 套 schema 2 单主图主题，通过
 Codex 可以保持运行，直接运行：
 
 ```text
-Codex-Skin-Manager-Setup-1.6.1.exe
+Codex-Skin-Manager-Setup-1.7.0.exe
 ```
 
-安装器部署到 `%LOCALAPPDATA%\CodexDreamSkin\engine-1.6.1`，内置 Node.js 运行时，并创建主题管理器和恢复快捷方式。
+安装器部署到 `%LOCALAPPDATA%\CodexDreamSkin\engine-1.7.0`，内置 Node.js 运行时，并创建主题管理器和恢复快捷方式。
 当前 Codex 窗口不会被安装器关闭，主题会在首次应用时生效。
 
 ## 主题管理器
 
 - 浏览预览并一键切换主题
 - 后台驻留系统托盘，关闭窗口不退出；托盘菜单显示实时状态并支持快速切换
+- 启动后后台检查签名更新，也可从窗口、运行状态页或托盘手动检查
+- 校验并静默安装新版 NSIS，随后从新的版本化引擎目录自动重启管理器
+- 从独立在线目录安装官方主题，不需要下载完整软件安装包
 - 查看当前主题横幅、Codex 连接状态和主题运行信息
 - 在“主题接入”页查看导入规范，在“运行状态”页刷新引擎状态
 - 不关闭 Codex 即可恢复原版外观，随后仍可直接切回其他主题
@@ -63,7 +66,7 @@ brew install nsis
 产物：
 
 ```text
-release/Codex-Skin-Manager-Setup-1.6.1.exe
+release/Codex-Skin-Manager-Setup-1.7.0.exe
 ```
 
 发布前需在真实 Windows 10/11 环境完成安装、创建、导入、切换、恢复和卸载测试。

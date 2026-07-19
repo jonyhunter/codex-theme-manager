@@ -428,7 +428,7 @@ try {
   }
   $installerSource = Get-Content -LiteralPath (Join-Path $Root 'installer\CodexDreamSkin.nsi') -Raw -Encoding UTF8
   if ($installerSource -notmatch 'PRODUCT_NAME "Codex 皮肤管理器"' -or
-    $installerSource -notmatch 'PRODUCT_VERSION "1\.6\.1"' -or
+    $installerSource -notmatch 'PRODUCT_VERSION "1\.7\.0"' -or
     $installerSource -notmatch 'Codex-Skin-Manager-Setup-\$\{PRODUCT_VERSION\}\.exe' -or
     $installerSource -notmatch 'engine-\$\{PRODUCT_VERSION\}') {
     throw 'The Windows product name or release filename is stale.'
@@ -462,6 +462,12 @@ try {
     -LiteralPath (Join-Path $Root 'scripts\common-windows.ps1') -Raw -Encoding UTF8
   $injectorSource = Get-Content `
     -LiteralPath (Join-Path $Root 'scripts\injector.mjs') -Raw -Encoding UTF8
+  $updateClientSource = Get-Content `
+    -LiteralPath (Join-Path $Root 'scripts\update-client.mjs') -Raw -Encoding UTF8
+  $updateInstallerSource = Get-Content `
+    -LiteralPath (Join-Path $Root 'scripts\install-update-windows.ps1') -Raw -Encoding UTF8
+  $onlineThemeSource = Get-Content `
+    -LiteralPath (Join-Path $Root 'scripts\sync-online-themes.ps1') -Raw -Encoding UTF8
   if ($managerSource -notmatch 'CodexDreamSkin\\themes' -or
       $switchSource -notmatch 'CodexDreamSkin\\themes') {
     throw 'The manager and switcher do not share the persistent user theme library.'
@@ -492,6 +498,19 @@ try {
       $managerSource -notmatch 'Update-TrayState' -or
       $managerSource -notmatch 'libraryMonitorTimer\.Interval = 3000') {
     throw 'The Windows manager is missing tray residency, single-instance wake-up, or live status refresh.'
+  }
+  if ($managerSource -notmatch 'Start-ManagerUpdateCheck' -or
+      $managerSource -notmatch 'trayUpdateItem' -or
+      $managerSource -notmatch 'automaticUpdateTimer\.Interval = 6000' -or
+      $managerSource -notmatch 'Codex-Skin-Manager-Setup-\$version\.exe' -or
+      $updateClientSource -notmatch 'Ed25519' -or
+      $updateClientSource -notmatch 'verify\(null, data, publicKey, signature\)' -or
+      $updateClientSource -notmatch 'SHA-256 校验失败' -or
+      $updateInstallerSource -notmatch "ArgumentList = '/S'" -or
+      $updateInstallerSource -notmatch 'launch-theme-manager\.vbs' -or
+      $onlineThemeSource -notmatch 'Assert-SafeThemeZip' -or
+      $onlineThemeSource -notmatch 'Install-DreamSkinThemePackage') {
+    throw 'The Windows signed updater or online theme workflow is incomplete.'
   }
   if ($switchSource -notmatch 'selection\.json' -or
       $switchSource -notmatch 'pause-dream-skin\.ps1' -or
@@ -529,6 +548,9 @@ try {
     'scripts\theme-manager.ps1',
     'scripts\theme-package.ps1',
     'scripts\theme-skill.ps1',
+    'scripts\update-client.mjs',
+    'scripts\install-update-windows.ps1',
+    'scripts\sync-online-themes.ps1',
     'scripts\launch-theme-manager.vbs',
     'scripts\launch-dream-skin.vbs',
     'scripts\launch-restore.vbs',

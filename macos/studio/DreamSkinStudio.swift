@@ -97,6 +97,7 @@ final class ThemeStore: ObservableObject {
   lazy var themesRoot = stateRoot.appendingPathComponent("themes")
   lazy var activeThemeURL = stateRoot.appendingPathComponent("theme/theme.json")
   lazy var runtimeStateURL = stateRoot.appendingPathComponent("state.json")
+  lazy var updateService = UpdateService(stateRoot: stateRoot, themesRoot: themesRoot)
   lazy var codexHome: URL = {
     if let configured = ProcessInfo.processInfo.environment["CODEX_HOME"], !configured.isEmpty {
       return URL(fileURLWithPath: configured, isDirectory: true)
@@ -129,8 +130,10 @@ final class ThemeStore: ObservableObject {
 
   init() {
     try? FileManager.default.createDirectory(at: themesRoot, withIntermediateDirectories: true)
+    updateService.onThemeInstalled = { [weak self] in self?.reload() }
     reload()
     installThemeCreatorSkill(silent: true)
+    updateService.scheduleAutomaticCheck()
     let monitor = Timer(timeInterval: 1.5, repeats: true) { [weak self] _ in
       self?.refreshMonitoredStateIfNeeded()
     }
@@ -464,7 +467,7 @@ struct SidebarView: View {
       }
       .padding(.horizontal, 14)
 
-      Text("Codex 皮肤管理器 · v1.6.1")
+      Text("Codex 皮肤管理器 · v\(UpdateService.currentVersion)")
         .font(.system(size: 10, design: .monospaced))
         .foregroundStyle(.white.opacity(0.32))
         .padding(.horizontal, 22)
@@ -1143,6 +1146,7 @@ struct ContentView: View {
           Text("Codex 皮肤管理器").font(.system(size: 13, weight: .semibold))
         }
         ToolbarItemGroup(placement: .primaryAction) {
+          UpdateToolbarButton(updater: store.updateService)
           Button(action: store.reload) { Image(systemName: "arrow.clockwise") }.help("刷新皮肤库")
           Button(action: store.revealThemes) { Image(systemName: "folder") }.help("打开皮肤目录")
         }
@@ -1158,6 +1162,7 @@ struct ContentView: View {
 
 struct MenuBarStatusView: View {
   @ObservedObject var store: ThemeStore
+  @ObservedObject var updater: UpdateService
   @Environment(\.openWindow) private var openWindow
 
   var body: some View {
@@ -1191,6 +1196,11 @@ struct MenuBarStatusView: View {
     }
     Button("刷新实时状态", action: store.reload)
     Button("打开 Codex", action: store.openCodex)
+    Button(updater.hasUpdates ? "有可用更新…" : "检查更新…") {
+      updater.present()
+      openWindow(id: "manager")
+      NSApp.activate(ignoringOtherApps: true)
+    }
 
     Divider()
 
@@ -1234,7 +1244,7 @@ struct DreamSkinStudioApp: App {
     }
 
     MenuBarExtra {
-      MenuBarStatusView(store: store)
+      MenuBarStatusView(store: store, updater: store.updateService)
     } label: {
       HStack(spacing: 4) {
         Image(systemName: store.isRuntimeActive ? "paintpalette.fill" : "paintpalette")

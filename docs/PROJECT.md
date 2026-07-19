@@ -49,6 +49,16 @@
 
 更细的平台路径见 [`platforms.md`](./platforms.md)。
 
+### 更新架构
+
+`v1.7.0` 起，管理器使用签名双通道更新：
+
+- `updates/stable.json` 发布软件版本、平台资产与最低兼容版本。
+- `updates/themes.json` 独立发布在线主题，普通新增主题无需升级整个管理器。
+- `script/update-feed.mjs` 负责生成、签名和验证 feed。
+- macOS 原生更新服务与 Windows 内置 Node 更新客户端使用同一 Ed25519 公钥。
+- 标签发布工作流先构建和上传全部资产，再更新主分支 feed，避免客户端读取半成品。
+
 ---
 
 ## 4. 仓库结构

@@ -4,7 +4,10 @@ set -euo pipefail
 
 if [ -z "${HOME:-}" ]; then
   CURRENT_USER="$(/usr/bin/id -un)"
-  HOME="$(/usr/bin/dscl . -read "/Users/$CURRENT_USER" NFSHomeDirectory 2>/dev/null | /usr/bin/awk '{print $2}')"
+  HOME="$(/usr/bin/id -P "$CURRENT_USER" 2>/dev/null | /usr/bin/awk -F: '{print $9}')"
+  if [ -z "$HOME" ]; then
+    HOME="$(/usr/bin/dscl . -read "/Users/$CURRENT_USER" NFSHomeDirectory 2>/dev/null | /usr/bin/awk '{print $2}')"
+  fi
   [ -n "$HOME" ] || { printf 'Codex 皮肤管理器：未能确定当前 macOS 用户目录。\n' >&2; exit 1; }
   export HOME
 fi
@@ -28,7 +31,7 @@ START_ERROR_LOG="$STATE_ROOT/start-error.log"
 CODEX_APP_JOB_LABEL="com.openai.codex-dream-skin-studio.app"
 INJECTOR_JOB_LABEL="com.openai.codex-dream-skin-studio.injector"
 EXPECTED_CODEX_TEAM_ID="${CODEX_EXPECTED_TEAM_ID:-2DC432GLL2}"
-SKIN_VERSION="1.6.1"
+SKIN_VERSION="1.7.0"
 
 fail() {
   local message="$*"

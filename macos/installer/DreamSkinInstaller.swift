@@ -10,6 +10,7 @@ final class InstallerModel: ObservableObject {
   @Published var errorDetail: String?
 
   private let managerBundleID = "com.codexdreamskin.studio"
+  private let automaticUpdate = CommandLine.arguments.contains("--automatic-update")
 
   func install() {
     guard !isInstalling else { return }
@@ -143,6 +144,11 @@ final class InstallerModel: ObservableObject {
     headline = "安装完成"
     detail = "皮肤管理器已放入“应用程序”并在桌面创建入口。"
     openManager()
+    if automaticUpdate {
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+        NSApp.terminate(nil)
+      }
+    }
   }
 
   private func fail(_ message: String) {
@@ -242,6 +248,11 @@ struct InstallerView: View {
     .frame(width: 560, height: 420)
     .background(Color(red: 0.965, green: 0.97, blue: 0.968))
     .preferredColorScheme(.light)
+    .onAppear {
+      if CommandLine.arguments.contains("--automatic-update") {
+        model.install()
+      }
+    }
   }
 }
 

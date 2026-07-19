@@ -17,7 +17,7 @@
   <a href="./docs/platforms.md">Platforms</a>
 </p>
 
-> Current version: `1.6.1`. This is a community project and is not affiliated with OpenAI.
+> Current version: `1.7.0`. This is a community project and is not affiliated with OpenAI.
 
 ## Manager UI
 
@@ -68,6 +68,8 @@ The screenshots come from real Codex pages. The capture utility hides conversati
 
 - Native macOS and Windows theme managers
 - Persistent macOS menu bar and Windows system tray controls with live status and quick switching
+- In-app update checks, verified downloads, installation, and relaunch
+- Independently updated online theme catalog for smaller theme-only downloads
 - 14 bundled appearances with the stock Codex theme pinned first
 - One-click theme switching with synchronized manager state
 - In-app theme creation from local images
@@ -81,11 +83,11 @@ The screenshots come from real Codex pages. The capture utility hides conversati
 
 ## Download And Install
 
-Download `v1.6.1` from [Releases](https://github.com/houyuhang915-sudo/Codex-Skin-Manager/releases).
+Download `v1.7.0` from [Releases](https://github.com/houyuhang915-sudo/Codex-Skin-Manager/releases).
 
 ### macOS
 
-Download `Codex-Skin-Manager-1.6.1.dmg`, open it, then launch `安装 Codex 皮肤管理器.app` and click the install button.
+Download `Codex-Skin-Manager-1.7.0.dmg`, open it, then launch `安装 Codex 皮肤管理器.app` and click the install button.
 
 Installed locations:
 
@@ -101,12 +103,12 @@ Closing the main window keeps the manager in the macOS menu bar under the palett
 
 ### Windows
 
-Run `Codex-Skin-Manager-Setup-1.6.1.exe`. Codex may remain open during setup. Launch `Codex 皮肤管理器` from the Start menu and use **One-click switch**.
+Run `Codex-Skin-Manager-Setup-1.7.0.exe`. Codex may remain open during setup. Launch `Codex 皮肤管理器` from the Start menu and use **One-click switch**.
 
 Installed locations:
 
 ```text
-Engine: %LOCALAPPDATA%\CodexDreamSkin\engine-1.6.1
+Engine: %LOCALAPPDATA%\CodexDreamSkin\engine-1.7.0
 Themes: %LOCALAPPDATA%\CodexDreamSkin\themes
 State: %LOCALAPPDATA%\CodexDreamSkin
 ```
@@ -129,6 +131,14 @@ On macOS, the red close button closes only the main window. The manager continue
 On Windows, closing the main window hides it to the system tray. Open the taskbar overflow arrow when the icon is not immediately visible.
 
 Theme and connection state stay synchronized between the background control and the full manager.
+
+## Software And Online Theme Updates
+
+The manager checks in the background about six seconds after launch and does not repeat a successful check for 24 hours. Manual checks are available from the macOS toolbar and `皮肤` menu, or from the Windows header, runtime page, and system tray.
+
+The client verifies a detached Ed25519 signature, semantic version, HTTPS URL, declared size, and SHA-256 before accepting an update. macOS mounts the verified DMG and runs its bundled automatic updater. Windows exits only the manager, runs the verified NSIS package silently, and starts the new version. Codex, user themes, selection, and state remain in place.
+
+The signed online catalog is independent from application releases. Compatible schema 2 theme ZIPs are validated and installed atomically. New artwork and palettes can therefore ship as small theme downloads, while injector, layout-module, and schema changes continue to use full application releases.
 
 ## Use A Theme
 
@@ -165,7 +175,7 @@ The new theme appears in the library immediately.
 
 ## Codex Skill
 
-The installers deploy `codex-skin-theme-creator` automatically. A standalone `codex-skin-theme-creator-1.6.1.zip` is also available in the Release.
+The installers deploy `codex-skin-theme-creator` automatically. A standalone `codex-skin-theme-creator-1.7.0.zip` is also available in the Release.
 
 Default locations:
 
@@ -238,7 +248,7 @@ macos/tests/run-tests.sh
 macos/scripts/build-studio-app-macos.sh \
   "$HOME/Desktop/Codex 皮肤管理器.app"
 macos/scripts/build-installer-dmg-macos.sh \
-  "$HOME/Desktop/Codex-Skin-Manager-1.6.1.dmg"
+  "$HOME/Desktop/Codex-Skin-Manager-1.7.0.dmg"
 ```
 
 Windows:
@@ -271,7 +281,7 @@ script/                        Build and documentation utilities
 
 The release passes macOS build and regression checks, Windows PowerShell 5.1 and PowerShell 7 tests, cross-platform Node.js renderer tests, GitHub Actions static checks, DMG verification, NSIS format inspection, and Skill validation.
 
-Use `Codex-Skin-Manager-1.6.1-SHA256.txt` from the Release to verify downloaded files.
+Use `Codex-Skin-Manager-1.7.0-SHA256.txt` from the Release to verify downloaded files.
 
 ## License
 
