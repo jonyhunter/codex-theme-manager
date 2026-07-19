@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="macos/assets/DreamSkinAppIcon.png" width="128" height="128" alt="Codex 皮肤管理器图标">
+</p>
+
 # Codex 皮肤管理器
 
 <p align="center">
