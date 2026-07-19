@@ -11,6 +11,7 @@ import {
   validateFeed,
 } from "../../script/update-feed.mjs";
 import {
+  CURRENT_VERSION,
   UPDATE_PUBLIC_KEY,
   checkForUpdates,
   compareVersions as compareWindowsVersions,
@@ -36,7 +37,12 @@ test("signed update metadata is valid and shared by both platforms", () => {
     path.join(repositoryRoot, "updates/public-key.json"),
     "utf8",
   ));
-  assert.equal(feed.version, "1.6.1");
+  const packagedVersion = readFileSync(
+    path.join(repositoryRoot, "macos/VERSION"),
+    "utf8",
+  ).trim();
+  assert.equal(CURRENT_VERSION, packagedVersion);
+  assert.equal(feed.version, packagedVersion);
   assert.deepEqual(UPDATE_PUBLIC_KEY, publicKey);
 
   const output = execFileSync(
@@ -72,12 +78,18 @@ test("Windows client verifies the detached feed and catalog signatures", async (
     };
   };
   try {
-    const result = await checkForUpdates(feedURL, "1.6.0");
-    assert.equal(result.pass, true);
-    assert.equal(result.updateAvailable, true);
-    assert.equal(result.updateRequired, true);
-    assert.equal(result.version, "1.6.1");
-    assert.deepEqual(result.themes, []);
+    const legacyResult = await checkForUpdates(feedURL, "0.0.0");
+    assert.equal(legacyResult.pass, true);
+    assert.equal(legacyResult.updateAvailable, true);
+    assert.equal(legacyResult.updateRequired, true);
+    assert.equal(legacyResult.version, CURRENT_VERSION);
+    assert.deepEqual(legacyResult.themes, []);
+
+    const currentResult = await checkForUpdates(feedURL, CURRENT_VERSION);
+    assert.equal(currentResult.pass, true);
+    assert.equal(currentResult.updateAvailable, false);
+    assert.equal(currentResult.updateRequired, false);
+    assert.equal(currentResult.version, CURRENT_VERSION);
   } finally {
     globalThis.fetch = originalFetch;
   }
