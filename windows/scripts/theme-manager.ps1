@@ -445,7 +445,8 @@ function Get-ActiveThemeId {
   if (Test-Path -LiteralPath $StatePath) {
     try {
       $state = Get-Content -LiteralPath $StatePath -Raw -Encoding UTF8 | ConvertFrom-Json
-      if ($state.session -ceq 'paused' -or $state.selectedThemeId -ceq 'codex-default') {
+      if ((Test-DreamSkinStatePaused -State $state) -or
+          $state.selectedThemeId -ceq 'codex-default') {
         return 'codex-default'
       }
     } catch {}
@@ -488,7 +489,7 @@ function Get-ManagerRuntimeSnapshot {
   }
   try {
     $state = Read-DreamSkinState -Path $StatePath
-    if ($state.session -ceq 'paused') {
+    if (Test-DreamSkinStatePaused -State $state) {
       return [pscustomobject]@{ Label = '原版模式'; Connected = $false }
     }
     if (Test-DreamSkinRecordedInjector -State $state) {

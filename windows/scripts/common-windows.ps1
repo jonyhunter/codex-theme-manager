@@ -384,6 +384,13 @@ function Read-DreamSkinState {
   }
 }
 
+function Test-DreamSkinStatePaused {
+  param([AllowNull()][object]$State)
+  if ($null -eq $State) { return $false }
+  $sessionProperty = $State.PSObject.Properties['session']
+  return $null -ne $sessionProperty -and [string]$sessionProperty.Value -ceq 'paused'
+}
+
 function Write-DreamSkinState {
   param([Parameter(Mandatory = $true)][string]$Path, [Parameter(Mandatory = $true)][object]$State)
   $json = $State | ConvertTo-Json -Depth 6

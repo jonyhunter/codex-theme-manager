@@ -19,6 +19,12 @@ $RepositoryRoot = Split-Path -Parent $Root
       throw "Strict-mode collection normalization failed for $expectedCount items."
     }
   }
+  $activeState = [pscustomobject]@{ schemaVersion = 3; injectorPid = 1234 }
+  $pausedState = [pscustomobject]@{ schemaVersion = 2; session = 'paused' }
+  if ((Test-DreamSkinStatePaused -State $activeState) -or
+      -not (Test-DreamSkinStatePaused -State $pausedState)) {
+    throw 'Strict-mode state checks do not handle the optional session field safely.'
+  }
 }
 
 foreach ($scriptFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'scripts') -Filter '*.ps1' -File)) {
@@ -536,6 +542,7 @@ try {
       $managerSource -notmatch 'Get-ThemeLibraryFingerprint' -or
       $managerSource -notmatch 'switchErrorPath' -or
       $managerSource -notmatch 'RedirectStandardOutput = \$false' -or
+      $managerSource -match '\$state\.session' -or
       $managerSource -notmatch '-OutputFormat Text' -or
       $managerSource -notmatch '深色侧栏|SidebarColor' -or
       $managerSource -match 'System\.Windows\.Forms\.ListView') {
