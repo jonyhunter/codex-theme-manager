@@ -47,6 +47,11 @@ assert.match(
 );
 assert.match(
   template,
+  /getElementsByClassName\("group\/home-suggestions"\)/,
+  "The home detector must handle Tailwind class names containing a slash without an invalid selector.",
+);
+assert.match(
+  template,
   /cleanup = \(\) => \{[\s\S]{0,3500}URL\.revokeObjectURL\(state\.artUrl\)/,
   "Cleanup must remove injected state and release the artwork object URL.",
 );

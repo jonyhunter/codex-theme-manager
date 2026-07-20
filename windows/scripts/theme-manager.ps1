@@ -355,6 +355,7 @@ $script:activeThemeId = $null
 $script:viewMode = 'all'
 $script:switchProcess = $null
 $script:switchThemeId = $null
+$script:switchErrorPath = $null
 $script:runtimeSnapshot = $null
 $script:themeLibraryFingerprint = ''
 $script:trayIcon = $null
@@ -1328,9 +1329,14 @@ function Start-ThemeSwitch {
   param([Parameter(Mandatory = $true)][string]$ThemeId)
   if ($null -ne $script:switchProcess) { return }
 
+  $errorPath = $null
   try {
+    $errorPath = Join-Path ([System.IO.Path]::GetTempPath()) (
+      'codex-skin-manager-switch-{0}-{1}.log' -f $PID, [guid]::NewGuid().ToString('N')
+    )
     $escapedScript = $SwitchScript.Replace("'", "''")
     $escapedThemeId = $ThemeId.Replace("'", "''")
+    $escapedErrorPath = $errorPath.Replace("'", "''")
     $command = @"
 `$ErrorActionPreference = 'Stop'
 `$ProgressPreference = 'SilentlyContinue'
@@ -1339,7 +1345,8 @@ try {
   & '$escapedScript' -ThemeId '$escapedThemeId'
   exit 0
 } catch {
-  [Console]::Error.WriteLine(`$_.Exception.Message)
+  `$utf8 = New-Object System.Text.UTF8Encoding(`$false)
+  [System.IO.File]::WriteAllText('$escapedErrorPath', `$_.Exception.Message, `$utf8)
   exit 1
 }
 "@
@@ -1351,23 +1358,26 @@ try {
     $startInfo.UseShellExecute = $false
     $startInfo.CreateNoWindow = $true
     $startInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-    $startInfo.RedirectStandardOutput = $true
-    $startInfo.RedirectStandardError = $true
-    $startInfo.StandardOutputEncoding = [System.Text.Encoding]::UTF8
-    $startInfo.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+    # A newly launched Codex process can outlive the switch worker and inherit its standard
+    # handles. Redirecting those handles to pipes would make the UI wait forever for EOF.
+    $startInfo.RedirectStandardOutput = $false
+    $startInfo.RedirectStandardError = $false
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $startInfo
     if (-not $process.Start()) { throw '主题切换进程未能启动。' }
     $script:switchProcess = $process
     $script:switchThemeId = $ThemeId
+    $script:switchErrorPath = $errorPath
     $selectedTheme = $script:themes | Where-Object Id -ceq $ThemeId | Select-Object -First 1
     $statusLabel.Text = '正在应用：{0}' -f $selectedTheme.Manifest.name
     Set-ApplyButtonsEnabled -Enabled $false
     Update-TrayState
     $switchTimer.Start()
   } catch {
+    if ($errorPath) { Remove-Item -LiteralPath $errorPath -Force -ErrorAction SilentlyContinue }
     $script:switchProcess = $null
     $script:switchThemeId = $null
+    $script:switchErrorPath = $null
     Set-ApplyButtonsEnabled -Enabled $true
     [System.Windows.Forms.MessageBox]::Show(
       $_.Exception.Message,
@@ -2096,12 +2106,17 @@ $switchTimer.add_Tick({
   $switchTimer.Stop()
   $process = $script:switchProcess
   $exitCode = $process.ExitCode
-  $output = $process.StandardOutput.ReadToEnd().Trim()
-  $errorOutput = $process.StandardError.ReadToEnd().Trim()
   $process.Dispose()
   $appliedThemeId = $script:switchThemeId
+  $errorPath = $script:switchErrorPath
   $script:switchProcess = $null
   $script:switchThemeId = $null
+  $script:switchErrorPath = $null
+  $errorOutput = ''
+  if ($errorPath -and (Test-Path -LiteralPath $errorPath)) {
+    try { $errorOutput = (Read-DreamSkinUtf8File -Path $errorPath).Trim() }
+    finally { Remove-Item -LiteralPath $errorPath -Force -ErrorAction SilentlyContinue }
+  }
 
   if ($exitCode -eq 0) {
     Reload-ThemeLibrary
@@ -2115,7 +2130,7 @@ $switchTimer.add_Tick({
     Reload-ThemeLibrary
     $message = Get-ThemeSwitchFailureMessage `
       -ErrorText $errorOutput `
-      -OutputText $output `
+      -OutputText '' `
       -ExitCode $exitCode
     $theme = $script:themes | Where-Object Id -ceq $appliedThemeId | Select-Object -First 1
     $themeName = if ($null -ne $theme) { [string]$theme.Manifest.name } else { $appliedThemeId }
@@ -2374,6 +2389,9 @@ $form.add_FormClosed({
   $activationTimer.Stop()
   if ($null -ne $script:switchProcess -and -not $script:switchProcess.HasExited) {
     try { $script:switchProcess.Kill() } catch {}
+  }
+  if ($script:switchErrorPath) {
+    Remove-Item -LiteralPath $script:switchErrorPath -Force -ErrorAction SilentlyContinue
   }
   if ($null -ne $script:updateProcess -and -not $script:updateProcess.HasExited) {
     try { $script:updateProcess.Kill() } catch {}

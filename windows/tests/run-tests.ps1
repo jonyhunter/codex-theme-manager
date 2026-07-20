@@ -534,10 +534,18 @@ try {
       $managerSource -notmatch 'Get-DreamSkinVerifiedCdpIdentity' -or
       $managerSource -notmatch 'Update-ThemeSkillState' -or
       $managerSource -notmatch 'Get-ThemeLibraryFingerprint' -or
+      $managerSource -notmatch 'switchErrorPath' -or
+      $managerSource -notmatch 'RedirectStandardOutput = \$false' -or
       $managerSource -notmatch '-OutputFormat Text' -or
       $managerSource -notmatch '深色侧栏|SidebarColor' -or
       $managerSource -match 'System\.Windows\.Forms\.ListView') {
     throw 'The Windows manager is missing the card library or hidden asynchronous switching.'
+  }
+  if ([regex]::Matches(
+      $managerSource,
+      '\$process\.Standard(?:Output|Error)\.ReadToEnd\(\)'
+    ).Count -ne 2) {
+    throw 'Theme switching can still block the UI while waiting for inherited output pipes.'
   }
   if ($managerSource -notmatch 'System\.Windows\.Forms\.NotifyIcon' -or
       $managerSource -notmatch 'System\.Windows\.Forms\.ContextMenuStrip' -or
