@@ -32,9 +32,9 @@ Generate a release feed after the platform packages have been built:
 
 ```bash
 node script/update-feed.mjs generate \
-  --version 1.7.1 \
-  --mac-asset release/Codex-Skin-Manager-1.7.1.dmg \
-  --windows-asset release/Codex-Skin-Manager-Setup-1.7.1.exe \
+  --version 1.7.2 \
+  --mac-asset release/Codex-Skin-Manager-1.7.2.dmg \
+  --windows-asset release/Codex-Skin-Manager-Setup-1.7.2.exe \
   --private-key .update-private-key.jwk
 ```
 
@@ -50,7 +50,7 @@ Package and publish a new online theme entry before uploading its ZIP:
 node script/update-feed.mjs add-theme \
   --theme themes/THEME_ID \
   --theme-version 1 \
-  --minimum-app 1.7.1 \
+  --minimum-app 1.7.2 \
   --url THEME_ZIP_URL \
   --output release/THEME_ID-1.zip \
   --private-key .update-private-key.jwk

@@ -337,7 +337,7 @@ $themeOrder = $DreamSkinBuiltInThemeIds
 $ActiveThemePath = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin\theme\theme.json'
 $StatePath = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin\state.json'
 $SelectionPath = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin\selection.json'
-$ManagerVersion = '1.7.1'
+$ManagerVersion = '1.7.2'
 $UpdateFeedURL = if ($env:CODEX_SKIN_UPDATE_FEED_URL) {
   $env:CODEX_SKIN_UPDATE_FEED_URL
 } else {

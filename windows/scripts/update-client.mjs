@@ -8,7 +8,7 @@ import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { pathToFileURL } from "node:url";
 
-export const CURRENT_VERSION = "1.7.1";
+export const CURRENT_VERSION = "1.7.2";
 export const DEFAULT_FEED_URL =
   "https://raw.githubusercontent.com/houyuhang915-sudo/Codex-Skin-Manager/main/updates/stable.json";
 export const UPDATE_PUBLIC_KEY = {

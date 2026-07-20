@@ -95,25 +95,28 @@ jobs:
           pattern: "*-release"
           path: release
           merge-multiple: true
-      - name: Build Skill package and signed feed
+      - name: Build Skill package and optional signed feed
         shell: bash
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          test -n "$UPDATE_PRIVATE_KEY"
-          printf '%s\n' "$UPDATE_PRIVATE_KEY" > .update-private-key.jwk
-          chmod 600 .update-private-key.jwk
           (
             cd skill
             zip -r -X "../release/codex-skin-theme-creator-$version.zip" \
               codex-skin-theme-creator
           )
-          node script/update-feed.mjs generate \
-            --version "$version" \
-            --mac-asset "release/Codex-Skin-Manager-$version.dmg" \
-            --windows-asset "release/Codex-Skin-Manager-Setup-$version.exe" \
-            --private-key .update-private-key.jwk
-          node script/update-feed.mjs validate
+          if [[ -n "${UPDATE_PRIVATE_KEY:-}" ]]; then
+            printf '%s\n' "$UPDATE_PRIVATE_KEY" > .update-private-key.jwk
+            chmod 600 .update-private-key.jwk
+            node script/update-feed.mjs generate \
+              --version "$version" \
+              --mac-asset "release/Codex-Skin-Manager-$version.dmg" \
+              --windows-asset "release/Codex-Skin-Manager-Setup-$version.exe" \
+              --private-key .update-private-key.jwk
+            node script/update-feed.mjs validate
+          else
+            echo "::notice::CODEX_UPDATE_PRIVATE_KEY_JWK is not configured; publishing installers without replacing the signed update feed."
+          fi
           sha256sum \
             "release/Codex-Skin-Manager-$version.dmg" \
             "release/Codex-Skin-Manager-Setup-$version.exe" \
@@ -129,11 +132,15 @@ jobs:
             "release/Codex-Skin-Manager-Setup-$version.exe"
             "release/codex-skin-theme-creator-$version.zip"
             "release/Codex-Skin-Manager-$version-SHA256.txt"
-            "updates/stable.json"
-            "updates/stable.json.sig"
-            "updates/themes.json"
-            "updates/themes.json.sig"
           )
+          if [[ -n "${UPDATE_PRIVATE_KEY:-}" ]]; then
+            assets+=(
+              "updates/stable.json"
+              "updates/stable.json.sig"
+              "updates/themes.json"
+              "updates/themes.json.sig"
+            )
+          fi
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
           else
@@ -142,6 +149,7 @@ jobs:
               --generate-notes
           fi
       - name: Publish the verified update feed
+        if: ${{ env.UPDATE_PRIVATE_KEY != '' }}
         shell: bash
         run: |
           set -euo pipefail

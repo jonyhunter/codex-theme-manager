@@ -223,7 +223,7 @@ if /usr/bin/xcrun --find swiftc >/dev/null 2>&1; then
   ' "$TMP/skill-result.json" "$TMP/skill-themes/skill-created-test/theme.json"
   [ "$(/usr/bin/plutil -extract CFBundleIconFile raw "$TMP/Codex 皮肤管理器.app/Contents/Info.plist")" = "DreamSkinAppIcon.icns" ]
   [ "$(/usr/bin/plutil -extract CFBundleName raw "$TMP/Codex 皮肤管理器.app/Contents/Info.plist")" = "Codex 皮肤管理器" ]
-  [ "$(/usr/bin/plutil -extract CFBundleShortVersionString raw "$TMP/Codex 皮肤管理器.app/Contents/Info.plist")" = "1.7.1" ]
+  [ "$(/usr/bin/plutil -extract CFBundleShortVersionString raw "$TMP/Codex 皮肤管理器.app/Contents/Info.plist")" = "1.7.2" ]
 fi
 
 CONFIG="$TMP/config.toml"
@@ -241,7 +241,7 @@ BACKUP="$TMP/theme-backup.json"
 "$NODE" "$ROOT/scripts/theme-config.mjs" restore "$CONFIG" "$BACKUP" >/dev/null
 /usr/bin/cmp -s "$CONFIG" "$TMP/original.toml"
 
-/usr/bin/env -u HOME /bin/bash -c '. "$1/scripts/common-macos.sh"; [ -n "$HOME" ] && [ "$SKIN_VERSION" = "1.7.1" ]' _ "$ROOT"
+/usr/bin/env -u HOME /bin/bash -c '. "$1/scripts/common-macos.sh"; [ -n "$HOME" ] && [ "$SKIN_VERSION" = "1.7.2" ]' _ "$ROOT"
 "$ROOT/scripts/doctor-macos.sh" >/dev/null
 
 printf 'PASS: syntax, payload, theme library, Studio build, config round-trip, HOME recovery, signature, and doctor checks.\n'

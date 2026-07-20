@@ -482,7 +482,7 @@ try {
   }
   $installerSource = Get-Content -LiteralPath (Join-Path $Root 'installer\CodexDreamSkin.nsi') -Raw -Encoding UTF8
   if ($installerSource -notmatch 'PRODUCT_NAME "Codex 皮肤管理器"' -or
-    $installerSource -notmatch 'PRODUCT_VERSION "1\.7\.1"' -or
+    $installerSource -notmatch 'PRODUCT_VERSION "1\.7\.2"' -or
     $installerSource -notmatch 'Codex-Skin-Manager-Setup-\$\{PRODUCT_VERSION\}\.exe' -or
     $installerSource -notmatch 'engine-\$\{PRODUCT_VERSION\}') {
     throw 'The Windows product name or release filename is stale.'

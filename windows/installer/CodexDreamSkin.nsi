@@ -5,7 +5,7 @@ RequestExecutionLevel user
 !include "LogicLib.nsh"
 
 !define PRODUCT_NAME "Codex 皮肤管理器"
-!define PRODUCT_VERSION "1.7.1"
+!define PRODUCT_VERSION "1.7.2"
 !define PRODUCT_PUBLISHER "Codex 皮肤管理器"
 !define ENGINE_DIR "$LOCALAPPDATA\CodexDreamSkin\engine-${PRODUCT_VERSION}"
 
