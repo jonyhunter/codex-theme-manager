@@ -356,6 +356,7 @@ $script:viewMode = 'all'
 $script:switchProcess = $null
 $script:switchThemeId = $null
 $script:switchErrorPath = $null
+$script:switchStartedAt = $null
 $script:runtimeSnapshot = $null
 $script:themeLibraryFingerprint = ''
 $script:trayIcon = $null
@@ -946,8 +947,7 @@ function Set-ApplyButtonsEnabled {
   foreach ($button in $script:applyButtons) {
     $isActive = [string]$button.Tag -ceq [string]$script:activeThemeId
     $isSwitchingThis = -not $Enabled -and [string]$button.Tag -ceq [string]$script:switchThemeId
-    # Disabled WinForms buttons ignore custom foreground colors.
-    $button.Enabled = -not $isActive
+    $button.Enabled = $Enabled -and -not $isActive
     if ($isActive) {
       $button.Text = '当前使用'
       $button.BackColor = $SignalSoftColor
@@ -976,6 +976,36 @@ function Set-ApplyButtonsEnabled {
     $restoreOriginalButton.Enabled = $Enabled -and $script:activeThemeId -cne 'codex-default'
     $runtimeRestoreButton.Enabled = $restoreOriginalButton.Enabled
   }
+}
+
+function Set-ThemeSwitchUiBusy {
+  param([bool]$Busy)
+  Set-ApplyButtonsEnabled -Enabled (-not $Busy)
+  $refreshHeaderButton.Enabled = -not $Busy
+  $runtimeRefreshButton.Enabled = -not $Busy
+}
+
+function Update-ThemeSwitchProgress {
+  if ($null -eq $script:switchProcess) { return }
+  $selectedThemeId = Get-ActiveThemeId
+  if (-not [string]::IsNullOrWhiteSpace($selectedThemeId) -and
+      [string]$selectedThemeId -cne [string]$script:activeThemeId) {
+    $script:activeThemeId = $selectedThemeId
+    Update-HeaderState
+    Update-ThemeCards
+    Update-TrayState
+  }
+  $elapsedSeconds = if ($null -ne $script:switchStartedAt) {
+    [Math]::Max(0, [int][Math]::Floor(((Get-Date) - $script:switchStartedAt).TotalSeconds))
+  } else {
+    0
+  }
+  $theme = $script:themes |
+    Where-Object Id -ceq $script:switchThemeId |
+    Select-Object -First 1
+  $themeName = if ($null -ne $theme) { [string]$theme.Manifest.name } else { $script:switchThemeId }
+  $statusLabel.Text = '正在应用：{0}（已等待 {1} 秒）' -f $themeName, $elapsedSeconds
+  Set-ThemeSwitchUiBusy -Busy $true
 }
 
 function New-ThemeCard {
@@ -1082,8 +1112,8 @@ function New-ThemeCard {
   $applyButton.Location = New-Object System.Drawing.Point(12, 224)
   $applyButton.Height = 34
   $applyButton.Tag = $Theme.Id
+  $applyButton.Enabled = $null -eq $script:switchProcess -and -not $isActive
   if ($isActive) {
-    $applyButton.Enabled = $false
     $applyButton.BackColor = $SignalSoftColor
     $applyButton.ForeColor = $SignalColor
     $applyButton.FlatAppearance.BorderColor = $SignalColor
@@ -1236,6 +1266,7 @@ function Update-ThemeCards {
     } else {
       '显示 {0} 套主题' -f $visible.Count
     }
+    Set-ApplyButtonsEnabled -Enabled ($null -eq $script:switchProcess)
   } finally {
     $themeFlow.ResumeLayout()
   }
@@ -1328,7 +1359,10 @@ function Get-ThemeSwitchFailureMessage {
 
 function Start-ThemeSwitch {
   param([Parameter(Mandatory = $true)][string]$ThemeId)
-  if ($null -ne $script:switchProcess) { return }
+  if ($null -ne $script:switchProcess) {
+    Update-ThemeSwitchProgress
+    return
+  }
 
   $errorPath = $null
   try {
@@ -1369,9 +1403,8 @@ try {
     $script:switchProcess = $process
     $script:switchThemeId = $ThemeId
     $script:switchErrorPath = $errorPath
-    $selectedTheme = $script:themes | Where-Object Id -ceq $ThemeId | Select-Object -First 1
-    $statusLabel.Text = '正在应用：{0}' -f $selectedTheme.Manifest.name
-    Set-ApplyButtonsEnabled -Enabled $false
+    $script:switchStartedAt = Get-Date
+    Update-ThemeSwitchProgress
     Update-TrayState
     $switchTimer.Start()
   } catch {
@@ -1379,7 +1412,8 @@ try {
     $script:switchProcess = $null
     $script:switchThemeId = $null
     $script:switchErrorPath = $null
-    Set-ApplyButtonsEnabled -Enabled $true
+    $script:switchStartedAt = $null
+    Set-ThemeSwitchUiBusy -Busy $false
     [System.Windows.Forms.MessageBox]::Show(
       $_.Exception.Message,
       '主题切换失败',
@@ -2103,7 +2137,11 @@ $runtimeDetail.Controls.Add($runtimeUpdateButton)
 $switchTimer = New-Object System.Windows.Forms.Timer
 $switchTimer.Interval = 250
 $switchTimer.add_Tick({
-  if ($null -eq $script:switchProcess -or -not $script:switchProcess.HasExited) { return }
+  if ($null -eq $script:switchProcess) { return }
+  if (-not $script:switchProcess.HasExited) {
+    Update-ThemeSwitchProgress
+    return
+  }
   $switchTimer.Stop()
   $process = $script:switchProcess
   $exitCode = $process.ExitCode
@@ -2113,6 +2151,8 @@ $switchTimer.add_Tick({
   $script:switchProcess = $null
   $script:switchThemeId = $null
   $script:switchErrorPath = $null
+  $script:switchStartedAt = $null
+  Set-ThemeSwitchUiBusy -Busy $false
   $errorOutput = ''
   if ($errorPath -and (Test-Path -LiteralPath $errorPath)) {
     try { $errorOutput = (Read-DreamSkinUtf8File -Path $errorPath).Trim() }
@@ -2354,6 +2394,10 @@ $runtimeRestoreButton.add_Click($restoreOriginalAction)
 $script:trayRestoreItem.add_Click($restoreOriginalAction)
 
 $refreshAction = {
+  if ($null -ne $script:switchProcess) {
+    Update-ThemeSwitchProgress
+    return
+  }
   Reload-ThemeLibrary
   $statusLabel.Text = '皮肤库和运行状态已刷新'
 }

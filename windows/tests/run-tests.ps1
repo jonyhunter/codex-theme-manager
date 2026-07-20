@@ -542,12 +542,20 @@ try {
       $managerSource -notmatch 'Update-ThemeSkillState' -or
       $managerSource -notmatch 'Get-ThemeLibraryFingerprint' -or
       $managerSource -notmatch 'switchErrorPath' -or
+      $managerSource -notmatch 'switchStartedAt' -or
       $managerSource -notmatch 'RedirectStandardOutput = \$false' -or
+      $managerSource -notmatch '\$button\.Enabled = \$Enabled -and -not \$isActive' -or
+      $managerSource -notmatch 'Set-ThemeSwitchUiBusy' -or
+      $managerSource -notmatch 'Update-ThemeSwitchProgress' -or
+      $managerSource -notmatch '(?s)function Update-ThemeSwitchProgress.*?Get-ActiveThemeId.*?Update-ThemeCards' -or
       $managerSource -match '\$state\.session' -or
       $managerSource -notmatch '-OutputFormat Text' -or
       $managerSource -notmatch '深色侧栏|SidebarColor' -or
       $managerSource -match 'System\.Windows\.Forms\.ListView') {
     throw 'The Windows manager is missing the card library or hidden asynchronous switching.'
+  }
+  if ($managerSource -notmatch '(?s)\$refreshAction\s*=\s*\{.*?\$script:switchProcess.*?Update-ThemeSwitchProgress.*?return') {
+    throw 'Manual refresh can still rebuild clickable theme controls during an active switch.'
   }
   if ([regex]::Matches(
       $managerSource,
