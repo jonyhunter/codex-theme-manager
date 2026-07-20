@@ -43,10 +43,15 @@ ShowUninstDetails show
 !insertmacro MUI_LANGUAGE "English"
 
 Section "Codex 皮肤管理器" SecMain
+  ; Keep identical runtime binaries in place during an in-version repair install. Windows
+  ; locks the bundled node.exe while the injector is active, but updated scripts have newer
+  ; timestamps and are still replaced.
+  SetOverwrite ifnewer
   SetOutPath "$INSTDIR"
   File /r /x "installer" /x "release" "..\*.*"
   SetOutPath "$INSTDIR\skill\codex-skin-theme-creator"
   File /r "..\..\skill\codex-skin-theme-creator\*.*"
+  SetOverwrite on
   SetOutPath "$INSTDIR"
 
   DetailPrint "正在安装主题库和快捷方式..."

@@ -489,6 +489,7 @@ try {
   }
   if ($installerSource -match '-PromptCloseCodex' -or
       $installerSource -notmatch 'install-error\.log' -or
+      $installerSource -notmatch 'SetOverwrite ifnewer[\s\S]+SetOverwrite on' -or
       $installerSource -notmatch 'wscript\.exe.*launch-theme-manager\.vbs' -or
       $installerSource -notmatch 'skill\\codex-skin-theme-creator') {
     throw 'The Windows installer still requests a Codex shutdown or omits its detailed error log.'
