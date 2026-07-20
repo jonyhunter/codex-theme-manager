@@ -113,6 +113,39 @@ try {
     throw 'Quoted desktop keys or a table-header comment were not restored exactly.'
   }
 
+  $nestedConfigPath = Join-Path $temporaryRoot 'config-nested-desktop.toml'
+  $nestedBackupPath = Join-Path $temporaryRoot 'config-nested-desktop.before.toml'
+  $nestedTables = @(
+    '["desktop".open-in-target-preferences]'
+    'global = "fileManager"'
+    ''
+    '[desktop.open-in-target-preferences.perPath]'
+    "'D:\Nested Project' = `"fileManager`""
+  ) -join "`r`n"
+  $nestedOriginal = @(
+    '[desktop]'
+    'appearanceTheme = "system"'
+    'followUpQueueMode = "queue"'
+    ''
+    $nestedTables
+    ''
+    '[features]'
+    'memories = false'
+    ''
+  ) -join "`r`n"
+  [System.IO.File]::WriteAllText($nestedConfigPath, $nestedOriginal, $utf8NoBom)
+  Install-DreamSkinBaseTheme -ConfigPath $nestedConfigPath -BackupPath $nestedBackupPath
+  $nestedInstalled = Read-DreamSkinUtf8File -Path $nestedConfigPath
+  if (-not $nestedInstalled.Contains('appearanceTheme = "light"') -or
+      -not $nestedInstalled.Contains($nestedTables)) {
+    throw 'Install did not preserve unrelated nested desktop tables.'
+  }
+  Restore-DreamSkinBaseTheme -ConfigPath $nestedConfigPath -BackupPath $nestedBackupPath
+  $nestedRestored = Read-DreamSkinUtf8File -Path $nestedConfigPath
+  if ($nestedRestored -cne $nestedOriginal) {
+    throw 'Restore did not preserve nested desktop tables exactly.'
+  }
+
   $singleLineArrayPath = Join-Path $temporaryRoot 'config-single-line-array.toml'
   $singleLineArrayBackup = Join-Path $temporaryRoot 'config-single-line-array.before.toml'
   $singleLineArray = "labels = [`"name[1]`", `"#tag]`"]`r`n"
@@ -127,7 +160,7 @@ try {
     'desktop = { appearanceTheme = "system" }',
     '[[desktop]]',
     '[desktop.appearanceTheme]',
-    '["desktop".layout]',
+    '[desktop."appearanceTheme"]',
     '["desk\u0074op".layout]',
     '["desk\u0074op"]',
     "note = `"`"`"fake`r`n[desktop]`r`nappearanceTheme = `"dark`"`r`n`"`"`"",

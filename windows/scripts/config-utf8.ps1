@@ -210,8 +210,12 @@ function Assert-DreamSkinDesktopShapeSupported {
   if ([regex]::IsMatch($Content, "(?m)^[\t ]*\[\[[\t ]*$desktopToken[\t ]*\]\]")) {
     throw 'Refusing to rewrite a config that represents desktop as an array of tables.'
   }
-  if ([regex]::IsMatch($Content, "(?m)^[\t ]*\[\[?[\t ]*$desktopToken[\t ]*\.")) {
-    throw 'Refusing to rewrite nested desktop tables; normalize them to a single [desktop] table first.'
+  foreach ($key in @('appearanceTheme', 'appearanceLightCodeThemeId', 'appearanceLightChromeTheme')) {
+    $keyToken = Get-DreamSkinTomlKeyTokenPattern -Key $key
+    $nestedManagedTable = "(?m)^[\t ]*\[\[?[\t ]*$desktopToken[\t ]*\.[\t ]*$keyToken[\t ]*(?:\.|\]\]?[\t ]*(?:#[^\r\n]*)?$)"
+    if ([regex]::IsMatch($Content, $nestedManagedTable)) {
+      throw "Refusing to rewrite a nested desktop table that conflicts with '$key'."
+    }
   }
 
   $firstTable = [regex]::Match($Content, '(?m)^[\t ]*\[\[?')
@@ -369,6 +373,15 @@ function Restore-DreamSkinBaseTheme {
     $saved = if ($null -ne $backupDesktop) { [regex]::Match($backupDesktop.Body, $pattern) } else { $null }
     $line = if ($null -ne $saved -and $saved.Success) { $saved.Value } else { $null }
     $body = Set-DreamSkinSectionSetting -Body $body -Key $key -Line $line -NewLine $newLine
+  }
+  if ($null -ne $backupDesktop) {
+    $trailingWhitespacePattern = '(?s)(?:\r?\n[\t ]*)*\z'
+    $backupTrailingWhitespace = [regex]::Match(
+      $backupDesktop.Body,
+      $trailingWhitespacePattern
+    ).Value
+    $currentTrailingWhitespace = [regex]::Match($body, $trailingWhitespacePattern)
+    $body = $body.Substring(0, $currentTrailingWhitespace.Index) + $backupTrailingWhitespace
   }
   if ($null -eq $backupDesktop -and [string]::IsNullOrWhiteSpace($body)) {
     $currentContent = $currentContent.Remove($currentDesktop.SectionStart, $currentDesktop.SectionLength)
