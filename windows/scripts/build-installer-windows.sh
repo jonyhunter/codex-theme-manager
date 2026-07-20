@@ -34,7 +34,7 @@ if [ ! -s "$RUNTIME_NODE" ]; then
 fi
 
 "$NODE" "$ROOT/scripts/generate-ico.mjs" >/dev/null
-"$MAKENSIS" "$ROOT/installer/CodexDreamSkin.nsi"
+"$MAKENSIS" -INPUTCHARSET UTF8 "$ROOT/installer/CodexDreamSkin.nsi"
 OUTPUT="$ROOT/release/Codex-Skin-Manager-Setup-1.7.1.exe"
 [ -s "$OUTPUT" ] || { printf 'NSIS did not create %s\n' "$OUTPUT" >&2; exit 1; }
 /usr/bin/shasum -a 256 "$OUTPUT"

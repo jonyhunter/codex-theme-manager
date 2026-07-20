@@ -23,7 +23,7 @@ try {
   }
   $codexRunning = $false
   foreach ($registeredCodex in $registeredInstalls) {
-    if ((Get-DreamSkinCodexProcesses -Codex $registeredCodex).Count -gt 0) {
+    if (@(Get-DreamSkinCodexProcesses -Codex $registeredCodex).Count -gt 0) {
       $codexRunning = $true
     }
   }
@@ -38,7 +38,7 @@ try {
   $savedPathCandidate = Get-DreamSkinCodexStatePathCandidate -State $existingState
   $savedCodex = Resolve-DreamSkinCodexInstallFromState -State $existingState -RegisteredInstalls $registeredInstalls
   if ($null -ne $savedPathCandidate -and $null -eq $savedCodex -and
-    (Get-DreamSkinCodexProcesses -Codex $savedPathCandidate).Count -gt 0) {
+    @(Get-DreamSkinCodexProcesses -Codex $savedPathCandidate).Count -gt 0) {
     throw 'The saved Codex path is still running but no longer matches a registered Store package. Close it manually before installing.'
   }
   New-Item -ItemType Directory -Force -Path $StateRoot | Out-Null

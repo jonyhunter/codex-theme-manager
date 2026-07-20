@@ -1,5 +1,14 @@
 # Windows Changelog
 
+## Unreleased
+
+### 修复
+
+- NSIS 构建显式使用 UTF-8 输入，并在发布流程中校验安装包中文版本信息，修复安装界面和文件属性乱码。
+- 进程、端口和 CDP 查询在读取 `Count` 前统一规范化为数组，修复 Windows PowerShell 5.1 严格模式下安装、启动或恢复失败。
+- Windows Release 工作流显式捆绑 Node.js 24，不再依赖目标电脑预装 Node.js。
+- 签名更新清单固定使用 LF，跨平台主题暂存测试改用系统临时目录，Windows 本地测试可完整运行。
+
 ## 1.7.1 — 2026-07-20
 
 - 与 macOS 更新器热修复版本同步发布；Windows 签名更新、主题同步和托盘行为保持不变。
@@ -65,7 +74,7 @@
 - 配置写入继续使用 UTF-8 原子事务，并对 Codex 同时写配置造成的短暂冲突自动重试。
 - 其他安装异常会保存到 `%LOCALAPPDATA%\CodexDreamSkin\install-error.log`。
 
-## Unreleased
+## 1.4.0 — 2026-07-18
 
 ### 新增
 

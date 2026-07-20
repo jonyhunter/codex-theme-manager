@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
@@ -8,7 +9,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const macosRoot = path.resolve(here, "..");
 const stageScript = path.join(macosRoot, "scripts", "stage-theme.mjs");
 const fixtureAsset = path.join(macosRoot, "assets", "portal-hero.png");
-const tempRoot = await fs.mkdtemp(path.join("/tmp", "codex-dream-skin-stage-"));
+const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codex-dream-skin-stage-"));
 
 function runStage(source, stage) {
   return new Promise((resolve, reject) => {
@@ -70,14 +71,18 @@ try {
 
   const symlink = path.join(tempRoot, "symlink");
   await fs.mkdir(symlink);
-  await fs.symlink(outside, path.join(symlink, "background.png"));
-  await fs.writeFile(
-    path.join(symlink, "theme.json"),
-    `${JSON.stringify({ schemaVersion: 1, id: "bad-link", image: "background.png" })}\n`,
-  );
-  const symlinkStage = path.join(tempRoot, "symlink-stage");
-  await fs.mkdir(symlinkStage);
-  await assert.rejects(runStage(symlink, symlinkStage), /symbolic link/);
+  try {
+    await fs.symlink(outside, path.join(symlink, "background.png"));
+    await fs.writeFile(
+      path.join(symlink, "theme.json"),
+      `${JSON.stringify({ schemaVersion: 1, id: "bad-link", image: "background.png" })}\n`,
+    );
+    const symlinkStage = path.join(tempRoot, "symlink-stage");
+    await fs.mkdir(symlinkStage);
+    await assert.rejects(runStage(symlink, symlinkStage), /symbolic link/);
+  } catch (error) {
+    if (process.platform !== "win32" || !["EPERM", "EACCES"].includes(error.code)) throw error;
+  }
 
   console.log("PASS: theme staging snapshots a matched, contained config/image pair.");
 } finally {

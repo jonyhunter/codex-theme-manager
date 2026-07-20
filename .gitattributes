@@ -6,6 +6,10 @@
 *.sh text eol=lf
 *.command text eol=lf
 
+# Signed update payloads must keep byte-identical LF line endings on Windows.
+updates/*.json text eol=lf
+updates/*.sig text eol=lf
+
 # Keep artwork out of text normalization and text diffs.
 *.png binary
 *.jpg binary

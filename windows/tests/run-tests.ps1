@@ -6,6 +6,21 @@ $Root = Split-Path -Parent $PSScriptRoot
 $RepositoryRoot = Split-Path -Parent $Root
 . (Join-Path $Root 'scripts\common-windows.ps1')
 
+& {
+  Set-StrictMode -Version 2.0
+  function Get-TestItems([int]$Count) {
+    for ($index = 0; $index -lt $Count; $index++) {
+      [pscustomobject]@{ Index = $index }
+    }
+  }
+  foreach ($expectedCount in @(0, 1, 3)) {
+    $items = @(Get-TestItems -Count $expectedCount)
+    if ($items.Count -ne $expectedCount) {
+      throw "Strict-mode collection normalization failed for $expectedCount items."
+    }
+  }
+}
+
 foreach ($scriptFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'scripts') -Filter '*.ps1' -File)) {
   [void][scriptblock]::Create((Get-Content -LiteralPath $scriptFile.FullName -Raw -Encoding UTF8))
 }
@@ -460,6 +475,8 @@ try {
     -LiteralPath (Join-Path $Root 'scripts\start-dream-skin.ps1') -Raw -Encoding UTF8
   $commonSource = Get-Content `
     -LiteralPath (Join-Path $Root 'scripts\common-windows.ps1') -Raw -Encoding UTF8
+  $restoreSource = Get-Content `
+    -LiteralPath (Join-Path $Root 'scripts\restore-dream-skin.ps1') -Raw -Encoding UTF8
   $injectorSource = Get-Content `
     -LiteralPath (Join-Path $Root 'scripts\injector.mjs') -Raw -Encoding UTF8
   $updateClientSource = Get-Content `
@@ -530,6 +547,23 @@ try {
       $injectorSource -notmatch 'closeAndWait' -or
       $injectorSource -notmatch 'reloaded theme') {
     throw 'The hot-switch workflow can still roll back selection or restart the injector unnecessarily.'
+  }
+  foreach ($processSource in @($installScriptSource, $startSource, $restoreSource, $commonSource)) {
+    if ($processSource -match '(?<!@)\(Get-DreamSkinCodexProcesses[^\r\n]*\)\.Count' -or
+        $processSource -match '(?m)^\s*\$\w+Processes\s*=\s*Get-DreamSkinCodexProcesses\b') {
+      throw 'A Windows process query can still collapse to null or a scalar before Count is read.'
+    }
+  }
+  $releaseWorkflowSource = Get-Content `
+    -LiteralPath (Join-Path $RepositoryRoot '.github\workflows\release.yml') -Raw -Encoding UTF8
+  $localBuildSource = Get-Content `
+    -LiteralPath (Join-Path $Root 'scripts\build-installer-windows.sh') -Raw -Encoding UTF8
+  if ($releaseWorkflowSource -notmatch '& \$makensis /INPUTCHARSET UTF8' -or
+      $releaseWorkflowSource -notmatch 'VersionInfo\.ProductName' -or
+      $releaseWorkflowSource -notmatch 'Copy-Item[^\r\n]*node\.exe' -or
+      $releaseWorkflowSource -notmatch 'windows\\runtime\\node\.exe' -or
+      $localBuildSource -notmatch '\$MAKENSIS" -INPUTCHARSET UTF8') {
+    throw 'The Windows installer build omits UTF-8 verification or its bundled Node.js runtime.'
   }
   foreach ($launcherName in @('launch-theme-manager.vbs', 'launch-dream-skin.vbs', 'launch-restore.vbs')) {
     $launcherSource = Get-Content `

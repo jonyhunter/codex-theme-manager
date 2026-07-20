@@ -47,6 +47,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
       - name: Build Windows installer
         shell: pwsh
         run: |
@@ -54,9 +57,20 @@ jobs:
           if (-not (Test-Path -LiteralPath $makensis)) {
             choco install nsis --no-progress -y
           }
+          New-Item -ItemType Directory -Force -Path windows\runtime | Out-Null
+          Copy-Item -LiteralPath (Get-Command node.exe).Source `
+            -Destination windows\runtime\node.exe -Force
+          if (-not (Test-Path -LiteralPath windows\runtime\node.exe)) {
+            throw 'The bundled Windows Node.js runtime is missing.'
+          }
           New-Item -ItemType Directory -Force -Path windows\release | Out-Null
-          & $makensis windows\installer\CodexDreamSkin.nsi
+          & $makensis /INPUTCHARSET UTF8 windows\installer\CodexDreamSkin.nsi
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $installer = Get-Item windows\release\Codex-Skin-Manager-Setup-*.exe
+          if ($installer.VersionInfo.ProductName -cne 'Codex 皮肤管理器' -or
+              $installer.VersionInfo.FileDescription -cne 'Codex 皮肤管理器 Windows 安装程序') {
+            throw 'The Windows installer contains incorrectly encoded version metadata.'
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: windows-release
