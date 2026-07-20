@@ -12,13 +12,61 @@ $PortExplicit = $PSBoundParameters.ContainsKey('Port')
 $Injector = Join-Path $PSScriptRoot 'injector.mjs'
 . (Join-Path $PSScriptRoot 'common-windows.ps1')
 
+function Invoke-DreamSkinFastHotApply {
+  param(
+    [AllowNull()][object]$State,
+    [Parameter(Mandatory = $true)][object]$Node,
+    [Parameter(Mandatory = $true)][string]$InjectorPath,
+    [Parameter(Mandatory = $true)][string]$ThemePath,
+    [Parameter(Mandatory = $true)][string]$StateFile,
+    [Parameter(Mandatory = $true)][string]$VerifyFile,
+    [AllowNull()][string]$SelectedThemeId,
+    [int]$RequestedPort,
+    [bool]$RequestedPortExplicit,
+    [bool]$HasExplicitProfile,
+    [bool]$UseForegroundInjector
+  )
+
+  if ($null -eq $State -or $HasExplicitProfile -or $UseForegroundInjector -or
+      (Test-DreamSkinStatePaused -State $State)) {
+    return $false
+  }
+  $properties = @($State.PSObject.Properties.Name)
+  foreach ($required in @('port', 'browserId', 'injectorPath', 'nodePath')) {
+    if ($properties -notcontains $required -or -not $State.$required) { return $false }
+  }
+
+  $recordedPort = [int]$State.port
+  if ($RequestedPortExplicit -and $RequestedPort -ne $recordedPort) { return $false }
+  if (-not (Test-DreamSkinPathEqual -Left "$($State.injectorPath)" -Right $InjectorPath) -or
+      -not (Test-DreamSkinPathEqual -Left "$($State.nodePath)" -Right $Node.Path) -or
+      -not (Test-DreamSkinRecordedInjector -State $State)) {
+    return $false
+  }
+
+  $hotApplyOutput = @(& $Node.Path $InjectorPath --once --port $recordedPort `
+    --browser-id "$($State.browserId)" --theme-dir $ThemePath --timeout-ms 30000 2>&1)
+  $hotApplyExitCode = $LASTEXITCODE
+  Write-DreamSkinUtf8FileAtomically `
+    -Path $VerifyFile `
+    -Content (($hotApplyOutput -join "`r`n") + "`r`n")
+  if ($hotApplyExitCode -ne 0) { return $false }
+
+  $State | Add-Member -NotePropertyName selectedThemeId -NotePropertyValue $SelectedThemeId -Force
+  $State | Add-Member -NotePropertyName themeDir -NotePropertyValue $ThemePath -Force
+  $State | Add-Member `
+    -NotePropertyName updatedAt `
+    -NotePropertyValue (Get-Date).ToUniversalTime().ToString('o') `
+    -Force
+  Write-DreamSkinState -Path $StateFile -State $State
+  return $true
+}
+
 $operationLock = Enter-DreamSkinOperationLock
 try {
   Assert-DreamSkinPort -Port $Port
   if ($ProfilePath) { $ProfilePath = [System.IO.Path]::GetFullPath($ProfilePath) }
   $node = Get-DreamSkinNodeRuntime
-  $currentCodex = Get-DreamSkinCodexInstall
-  $codex = $currentCodex
   $StateRoot = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin'
   $ThemeDir = Join-Path $StateRoot 'theme'
   $StatePath = Join-Path $StateRoot 'state.json'
@@ -36,6 +84,7 @@ try {
       $selection = (Read-DreamSkinUtf8File -Path $SelectionPath) | ConvertFrom-Json -ErrorAction Stop
       $selectedThemeId = [string]$selection.themeId
       if ([string]$selection.themeId -ceq 'codex-default') {
+        $currentCodex = Get-DreamSkinCodexInstall
         if (@(Get-DreamSkinCodexProcesses -Codex $currentCodex).Count -eq 0) {
           Start-Process -FilePath $currentCodex.Executable | Out-Null
         }
@@ -53,6 +102,24 @@ try {
     Assert-DreamSkinPort -Port $savedPort
     $Port = $savedPort
   }
+  if (Invoke-DreamSkinFastHotApply `
+      -State $previousState `
+      -Node $node `
+      -InjectorPath $Injector `
+      -ThemePath $ThemeDir `
+      -StateFile $StatePath `
+      -VerifyFile $VerifyPath `
+      -SelectedThemeId $selectedThemeId `
+      -RequestedPort $Port `
+      -RequestedPortExplicit $PortExplicit `
+      -HasExplicitProfile ([bool]$ProfilePath) `
+      -UseForegroundInjector ([bool]$ForegroundInjector)) {
+    Write-Host "Codex 皮肤已热切换；现有监视器继续在本机端口 $Port 运行。"
+    exit 0
+  }
+
+  $currentCodex = Get-DreamSkinCodexInstall
+  $codex = $currentCodex
   $savedPathCandidate = Get-DreamSkinCodexStatePathCandidate -State $previousState
   $savedCodex = Get-DreamSkinCodexInstallFromState -State $previousState
   $candidateMatchesCurrent = [bool]($null -ne $savedPathCandidate -and

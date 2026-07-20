@@ -605,6 +605,11 @@ try {
       $injectorSource -notmatch 'reloaded theme') {
     throw 'The hot-switch workflow can still roll back selection or restart the injector unnecessarily.'
   }
+  if ($startSource -notmatch 'function Invoke-DreamSkinFastHotApply' -or
+      $startSource -notmatch '(?s)function Invoke-DreamSkinFastHotApply.*?Test-DreamSkinRecordedInjector.*?--once.*?Write-DreamSkinState' -or
+      $startSource -notmatch '(?s)\$previousState = Read-DreamSkinState.*?Invoke-DreamSkinFastHotApply.*?\$currentCodex = Get-DreamSkinCodexInstall') {
+    throw 'Connected theme switches still perform full Codex discovery before attempting the fast hot-apply path.'
+  }
   foreach ($processSource in @($installScriptSource, $startSource, $restoreSource, $commonSource)) {
     if ($processSource -match '(?<!@)\(Get-DreamSkinCodexProcesses[^\r\n]*\)\.Count' -or
         $processSource -match '(?m)^\s*\$\w+Processes\s*=\s*Get-DreamSkinCodexProcesses\b') {
