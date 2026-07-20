@@ -38,6 +38,16 @@ assert.match(
 );
 assert.match(
   source,
+  /options\.mode === "once"[\s\S]{0,180}waitForAppliedSession\(session, Math\.min\(options\.timeoutMs, 2500\)\)/,
+  "A hot switch must use the bounded applied-state check instead of the full layout verifier.",
+);
+assert.match(
+  source,
+  /async function verifyAppliedSession[\s\S]{0,900}installed && version ===[\s\S]{0,120}stylePresent && chromePresent/,
+  "The fast hot-switch check must still confirm versioned style and chrome injection.",
+);
+assert.match(
+  source,
   /finally\s*\{[\s\S]{0,160}identityAnchor\.close\(\);[\s\S]{0,160}sessions\.values\(\)/,
   "Watcher shutdown must release the identity anchor and all CDP sessions.",
 );

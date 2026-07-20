@@ -544,6 +544,42 @@ async function verifySession(session) {
   })()`);
 }
 
+async function verifyAppliedSession(session) {
+  return session.evaluate(`(() => {
+    const installed = document.documentElement.classList.contains('codex-dream-skin');
+    const version = window.__CODEX_DREAM_SKIN_STATE__?.version ?? null;
+    const stylePresent = Boolean(document.getElementById('codex-dream-skin-style'));
+    const chromePresent = Boolean(document.getElementById('codex-dream-skin-chrome'));
+    return {
+      installed,
+      version,
+      expectedVersion: ${JSON.stringify(SKIN_VERSION)},
+      stylePresent,
+      chromePresent,
+      pass: installed && version === ${JSON.stringify(SKIN_VERSION)} &&
+        stylePresent && chromePresent,
+    };
+  })()`);
+}
+
+async function waitForAppliedSession(session, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let lastResult;
+  let lastError;
+  while (Date.now() < deadline) {
+    try {
+      lastResult = await verifyAppliedSession(session);
+      lastError = null;
+      if (lastResult.pass) return lastResult;
+    } catch (error) {
+      lastError = error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  if (!lastResult && lastError) throw lastError;
+  return lastResult;
+}
+
 async function waitForVerifiedSession(session, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   let lastResult;
@@ -593,7 +629,7 @@ async function runOneShot(options) {
       if (options.mode === "remove") await removeFromSession(session);
       else if (options.mode === "once") await applyToSession(session, payload);
       if (options.mode === "once") {
-        await new Promise((resolve) => setTimeout(resolve, 850));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
       if (options.reload) {
         await session.send("Page.reload", { ignoreCache: true });
@@ -602,7 +638,9 @@ async function runOneShot(options) {
       }
       const verified = options.mode === "remove"
         ? await verifyRemovedSession(session)
-        : (options.reload || options.mode === "once" || options.mode === "verify")
+        : options.mode === "once"
+          ? await waitForAppliedSession(session, Math.min(options.timeoutMs, 2500))
+          : (options.reload || options.mode === "verify")
           ? await waitForVerifiedSession(session, options.timeoutMs)
           : await verifySession(session);
       results.push({ targetId: target.id, markers: probe.markers, result: verified });
@@ -612,7 +650,8 @@ async function runOneShot(options) {
       }
     }
   } finally {
-    await Promise.allSettled(connected.map(({ session }) => session.closeAndWait()));
+    const closeTimeoutMs = options.mode === "once" ? 500 : 2000;
+    await Promise.allSettled(connected.map(({ session }) => session.closeAndWait(closeTimeoutMs)));
   }
   console.log(JSON.stringify({ mode: options.mode, port: options.port, targets: results }, null, 2));
   const failed = results.length === 0 || results.some((item) =>
